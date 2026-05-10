@@ -5,6 +5,7 @@
   "description": "Standalone projection map and scene viewer visualization app",
   "type": "module",
   "author": "xyxz",
+  "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=20.19.0",
     "pnpm": ">=9.0.0"
