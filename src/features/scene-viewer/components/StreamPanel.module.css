@@ -1,0 +1,162 @@
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sv2-panel-bg-solid);
+  border-left: 1px solid var(--sv2-border);
+}
+
+.header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sv2-border);
+}
+
+.title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sv2-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.count {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sv2-text-faint);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--sv2-text-dim);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.closeBtn:hover {
+  color: var(--sv2-text-strong);
+}
+
+/* ── Tree scroll area ─────────────────────────────────────────────────────── */
+
+.tree {
+  flex: 1;
+  padding: 4px 0;
+  overflow: hidden auto;
+}
+
+.tree::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tree::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tree::-webkit-scrollbar-thumb {
+  background: var(--sv2-scrollbar);
+  border-radius: 2px;
+}
+
+/* ── Folder row ───────────────────────────────────────────────────────────── */
+
+.folderRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--sv2-text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.folderRow:hover {
+  color: var(--sv2-text-primary);
+  background: var(--sv2-row-hover);
+}
+
+.folderName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Stream row ───────────────────────────────────────────────────────────── */
+
+.streamRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--sv2-text-primary);
+}
+
+.streamRow:hover {
+  background: var(--sv2-row-hover);
+}
+
+.typeIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.streamName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dimmed {
+  color: var(--sv2-text-faint);
+}
+
+/* ── Visibility toggle button ─────────────────────────────────────────────── */
+
+.visBtn {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 2px;
+  color: var(--sv2-text-label);
+  cursor: pointer;
+
+  /* Hidden by default; shown on row hover or when stream is hidden */
+  visibility: hidden;
+  background: none;
+  border: none;
+}
+
+.visBtn:hover {
+  color: var(--sv2-text-strong) !important;
+}
+
+.streamRow:hover .visBtn {
+  visibility: visible;
+}
+
+.visBtnOff {
+  color: var(--sv2-text-ghost);
+  visibility: visible;
+}

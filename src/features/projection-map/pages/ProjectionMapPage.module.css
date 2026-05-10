@@ -1,0 +1,258 @@
+.page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 2.75rem;
+  padding: 0 1rem 0 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid #e4e8f0;
+}
+
+.headerTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #18243a;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.headerMeta {
+  display: flex;
+  margin-left: auto;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #6a7690;
+}
+
+.headerMeta span {
+  padding: 0.125rem 0.375rem;
+  background: #f0f2f7;
+  border-radius: 4px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Lasso toggle button */
+.lassoBtn,
+.lassoActive {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid #d2d8e6;
+  border-radius: 6px;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.lassoBtn {
+  color: #6a7690;
+  background: #fff;
+}
+
+.lassoBtn:hover {
+  color: #2563eb;
+  border-color: #93b4f0;
+  background: #f0f5ff;
+}
+
+.lassoActive {
+  color: #fff;
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Mode pill selector */
+.controls {
+  display: inline-grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 2px;
+  padding: 3px;
+  background: #f0f2f7;
+  border: 1px solid #d2d8e6;
+  border-radius: 7px;
+}
+
+.modeButton,
+.activeMode {
+  min-height: 1.625rem;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 450;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  transition: color 120ms;
+}
+
+.modeButton {
+  color: #6a7690;
+}
+
+.activeMode {
+  font-weight: 620;
+  color: #18243a;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 13%);
+}
+
+/* ── Content area (below header) ────────────────────────────────────────── */
+
+.content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.status {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: #647084;
+  background: #f7f8fb;
+}
+
+.error {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  max-width: min(38rem, calc(100% - 2rem));
+  padding: 0.625rem 0.875rem;
+  color: #8f1d2c;
+  transform: translateX(-50%);
+  background: #fff0f2;
+  border: 1px solid #f2bcc5;
+  border-radius: 8px;
+}
+
+/* ── 3D Scene Modal ───────────────────────────────────────────────────────── */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: rgb(10 15 28 / 62%);
+  backdrop-filter: blur(3px);
+  animation: fadeIn 160ms ease;
+}
+
+.modalPanel {
+  position: relative;
+  width: min(92vw, 1280px);
+  height: min(88vh, 820px);
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 55%);
+  animation: slideUp 200ms ease;
+}
+
+.modalClose {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.875rem;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 65%);
+  cursor: pointer;
+  background: rgb(255 255 255 / 8%);
+  border: 0;
+  border-radius: 6px;
+  transition: background 120ms, color 120ms;
+}
+
+.modalClose:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 16%);
+}
+
+.modalLoading {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 45%);
+}
+
+/* ── No-data Toast ────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 300;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #5a3e1b;
+  pointer-events: none;
+  background: #fef3e2;
+  border: 1px solid #f5c97a;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 12%);
+  animation: fadeIn 160ms ease, fadeOut 300ms ease 3.2s forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0 }
+}
+
+@media (width <= 720px) {
+  .meta {
+    right: 1rem;
+    bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .modalPanel {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .toast {
+    right: 1rem;
+    bottom: 1rem;
+  }
+}

@@ -1,0 +1,11 @@
+:root {
+  --color-text: #1a2332;
+  --color-muted: #5a6a7a;
+  --color-accent: #2563eb;
+  --color-border: #e2e6ea;
+  --color-border-strong: #c8cdd2;
+  --color-surface: #f8f9fa;
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'SFMono-Regular', monospace;
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.github
+.claude
+e2e
+*.md
+*.py
+playwright-report
+test-results

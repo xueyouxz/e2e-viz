@@ -1,0 +1,27 @@
+# Logs
+logs
+*.log
+pnpm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# Large copied runtime data.
+public/data/
+
+# Playwright output
+playwright-report/
+test-results/
+.playwright-cli/
+
+# Editor and OS files
+.DS_Store
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

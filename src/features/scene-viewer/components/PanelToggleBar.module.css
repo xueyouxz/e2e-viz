@@ -1,0 +1,111 @@
+/* ── Outer wrapper — centered positioning anchor ──────────────────────────── */
+
+.toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 20;
+  transform: translateX(-50%);
+  /* width is driven by .bar; .camOptions is absolute so it never shifts this */
+}
+
+/* ── Main pill ────────────────────────────────────────────────────────────── */
+
+.bar {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  padding: 3px;
+  background: var(--sv2-panel-bg-solid);
+  border: 1px solid var(--sv2-border-btn);
+  border-radius: 10px;
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--sv2-border-btn);
+  flex-shrink: 0;
+}
+
+/* Panel toggle + camera trigger buttons */
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sv2-text-dim);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  transition: color 0.15s ease;
+}
+
+/* Camera trigger (icon-only) tightened padding */
+.btnIcon {
+  padding: 5px 8px;
+}
+
+.btn:hover {
+  color: var(--sv2-text-primary);
+  background: var(--sv2-row-hover);
+}
+
+.btnActive {
+  color: var(--sv2-text-primary);
+  background: var(--sv2-toggle-active-bg);
+}
+
+/* ── Expanded camera options — absolute, to the right of .toolbar ─────────── */
+
+.camOptions {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  animation: fadeSlide 0.12s ease;
+}
+
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Each camera mode is a standalone floating button */
+.camBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--sv2-text-dim);
+  cursor: pointer;
+  background: var(--sv2-panel-bg-solid);
+  border: none;
+  border-radius: 8px;
+  transition: color 0.15s ease;
+}
+
+.camBtn:hover {
+  color: var(--sv2-text-primary);
+  background: var(--sv2-bg-hover);
+}
+
+.camBtnActive {
+  color: var(--sv2-text-primary);
+  background: var(--sv2-toggle-active-bg);
+}

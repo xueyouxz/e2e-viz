@@ -1,0 +1,161 @@
+.panel {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* SVG canvas — stretches to fill the full panel */
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.canvasBackground {
+  fill: #fff;
+}
+
+.scatterDot {
+  r: var(--scatter-r, 4);
+}
+
+.zoomLayer {
+  will-change: transform;
+}
+
+.glyphLayer {
+  pointer-events: none;
+}
+
+/* D3 sets pointer-events:all per element; CSS provides visual feedback */
+.glyphImage {
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+
+.glyphImage:hover {
+  filter: drop-shadow(0 3px 10px rgb(15 23 42 / 32%));
+}
+
+.glyphImageSelected {
+  filter: drop-shadow(0 0 4px rgb(37 99 235 / 80%));
+}
+
+.glyphImageSelected:hover {
+  filter: drop-shadow(0 0 4px rgb(37 99 235 / 80%)) brightness(1.06);
+}
+
+/* Selected scene dot — uses --sel-r (~52 % of scatter-r) for constant screen size. */
+.selectedDot {
+  r: var(--sel-r, 2.08);
+  opacity: 1;
+  pointer-events: none;
+}
+
+/* Lasso polygon drawn imperatively by D3 */
+.lassoPath {
+  fill: rgb(37 99 235 / 10%);
+  stroke: #2563eb;
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 3;
+  pointer-events: none;
+}
+
+/* Smooth convex hull bubble shown after lasso selection (data-space, inside zoom layer) */
+.selectionBubble {
+  fill: rgb(37 99 235 / 7%);
+  stroke: rgb(37 99 235 / 40%);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* Overlay controls */
+.controlsOverlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.controlsOverlay > * {
+  pointer-events: auto;
+}
+
+.lassoBtn,
+.lassoActive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 4px;
+  transition: color 120ms, background 120ms;
+}
+
+.lassoBtn {
+  color: #647084;
+}
+
+.lassoBtn:hover {
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.lassoActive {
+  color: #2563eb;
+  background: #e0e7ff;
+}
+
+.lassoIcon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.datasetToggles {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 4px;
+}
+
+.datasetBtn,
+.datasetActive {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  transition: color 120ms, background 120ms;
+}
+
+.datasetBtn {
+  color: #94a3b8;
+}
+
+.datasetBtn:hover {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.datasetActive {
+  color: #0f172a;
+  background: #e2e8f0;
+}

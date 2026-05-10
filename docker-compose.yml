@@ -1,0 +1,9 @@
+services:
+  app:
+    image: e2e-viz:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    restart: unless-stopped

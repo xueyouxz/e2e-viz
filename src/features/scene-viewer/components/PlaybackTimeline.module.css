@@ -1,0 +1,195 @@
+.root {
+  --timeline-background: #141414;
+  --timeline-padding-left: 18px;
+  --timeline-padding-right: 18px;
+  --timeline-track-height: 5px;
+  --timeline-knob-size: 25px;
+  --timeline-knob-border: #5c5c5c;
+  --timeline-knob-border-active: #999;
+  --timeline-track-bg: #3d3d3d;
+  --timeline-track-fill: #276ef1;
+  --timeline-buffer-fill: rgb(39 110 241 / 28%);
+  --timeline-tick-major-color: #5c5c5c;
+  --timeline-tick-minor-color: #444;
+  --timeline-tick-label-color: #7a7a7a;
+  --timeline-text-primary: #ccc;
+  --timeline-text-secondary: #7a7a7a;
+  --timeline-btn-color: #7a7a7a;
+  --timeline-btn-hover-color: #ccc;
+
+  box-sizing: border-box;
+  padding: 10px var(--timeline-padding-right) 5px var(--timeline-padding-left);
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11px;
+  color: var(--timeline-text-primary);
+  user-select: none;
+  background: var(--timeline-background);
+  border-top: 1px solid var(--timeline-border-color, #e2e8f0);
+  outline: none;
+}
+
+.controlRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.ruler {
+  position: relative;
+  height: 16px;
+  margin-bottom: -3px;
+}
+
+.tick {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.tickLabel {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--timeline-tick-label-color);
+  letter-spacing: 0;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.tickLine {
+  width: 1px;
+  height: 8px;
+  background: var(--timeline-tick-major-color);
+}
+
+.playButton {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--timeline-btn-color);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  transition: color 0.15s ease;
+  transform: translateY(3px);
+}
+
+.playButton:hover {
+  color: var(--timeline-btn-hover-color);
+}
+
+.playButton:focus-visible {
+  outline: 1px solid var(--timeline-knob-border-active);
+  outline-offset: 2px;
+}
+
+.playIcon {
+  width: 17px;
+  height: 17px;
+}
+
+.trackColumn {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Fixed-height interactive area — prevents hover from causing layout shifts */
+.trackInteractive {
+  position: relative;
+  height: calc(var(--timeline-knob-size) + 4px);
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Track bar is absolutely positioned so its height changes stay out of flow */
+.track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: var(--timeline-track-height);
+  background: var(--timeline-track-bg);
+  border-radius: calc(var(--timeline-track-height) / 2);
+  transition: height 0.15s ease;
+}
+
+.trackInteractive:hover .track {
+  height: calc(var(--timeline-track-height) * 3);
+  border-radius: calc(var(--timeline-track-height) * 3 / 2);
+}
+
+.bufferFill,
+.progressFill,
+.marker {
+  position: absolute;
+}
+
+.bufferFill,
+.progressFill {
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: calc(var(--timeline-track-height) / 2);
+}
+
+.bufferFill {
+  z-index: 1;
+  min-width: 2px;
+  background: var(--timeline-buffer-fill);
+  transition:
+    left 0.3s ease,
+    width 0.3s ease;
+}
+
+.progressFill {
+  z-index: 2;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--timeline-track-fill);
+  transition: transform 0.3s ease;
+}
+
+.marker {
+  z-index: 4;
+  height: 100%;
+}
+
+/* Knob is a sibling of .track, positioned relative to .trackInteractive */
+/* left:0 is the anchor; transform:translateX() moves it along the track */
+.knob {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 5;
+  width: var(--timeline-knob-size);
+  height: var(--timeline-knob-size);
+  margin-top: calc(var(--timeline-knob-size) / -2);
+  margin-left: calc(var(--timeline-knob-size) / -2);
+  pointer-events: none;
+  background: var(--timeline-background);
+  border: 2px solid var(--timeline-knob-border);
+  border-radius: 50%;
+  transition:
+    transform 0.3s ease,
+    border-color 0.15s ease;
+}
+
+.knobActive {
+  border-color: var(--timeline-knob-border-active);
+}
+
+.noTransition {
+  transition: none;
+}
