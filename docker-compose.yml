@@ -1,9 +1,11 @@
 services:
   app:
-    image: e2e-viz:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/xueyouxz/e2e-viz:latest
     ports:
       - "3001:80"
+    volumes:
+      # Data lives on the host at /srv/e2e-viz/data and is served by nginx
+      # under the /data/ URL prefix. Update data independently of the image.
+      - /srv/e2e-viz/data:/usr/share/nginx/html/data:ro
     restart: unless-stopped
+    pull_policy: always
