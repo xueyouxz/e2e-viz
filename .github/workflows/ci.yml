@@ -98,3 +98,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker compose -f /opt/e2e-viz/docker-compose.yml pull
+            docker compose -f /opt/e2e-viz/docker-compose.yml up -d
+            docker image prune -f
