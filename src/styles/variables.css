@@ -76,7 +76,7 @@
   --app-toggle-active-border: rgb(0 0 0 / 18%);
 
   /* App-level surface */
-  --app-surface: #ffffff;
+  --app-surface: #fff;
   --app-surface-raised: #f8f9fc;
   --app-text: #18243a;
   --app-text-muted: #6a7690;
