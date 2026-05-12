@@ -9,3 +9,10 @@ services:
       - /srv/e2e-viz/data:/usr/share/nginx/html/data:ro
     restart: unless-stopped
     pull_policy: always
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.25'
+        reservations:
+          memory: 32m

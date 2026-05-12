@@ -1,0 +1,27 @@
+name: Uptime
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub Actions minimum granularity is 5 min.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Health check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check https://e2eval.top
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            --max-time 15 --retry 2 --retry-delay 3 \
+            https://e2eval.top)
+          if [ "${STATUS}" != "200" ]; then
+            echo "::error::https://e2eval.top returned HTTP ${STATUS}"
+            exit 1
+          fi
+          echo "OK — https://e2eval.top returned ${STATUS}"

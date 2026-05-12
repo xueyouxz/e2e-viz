@@ -1,0 +1,23 @@
+# Staging environment — mirrors production but on port 3002.
+#
+# Server-side one-time setup (run once manually via SSH):
+#   mkdir -p /opt/e2e-viz-staging /srv/e2e-viz-staging/data
+#   cp docker-compose.staging.yml /opt/e2e-viz-staging/docker-compose.yml
+#
+# BaoTa panel: add site staging.e2eval.top → reverse proxy 127.0.0.1:3002
+services:
+  app:
+    image: ghcr.io/xueyouxz/e2e-viz:develop
+    ports:
+      - "127.0.0.1:3002:80"
+    volumes:
+      - /srv/e2e-viz-staging/data:/usr/share/nginx/html/data:ro
+    restart: unless-stopped
+    pull_policy: always
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.25'
+        reservations:
+          memory: 32m

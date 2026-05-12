@@ -1,27 +1,26 @@
-name: CI / CD
+name: Staging
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
   pull_request:
-    branches: [main]
+    branches: [develop]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  DEPLOY_HEALTH_URL: http://127.0.0.1:3001/
-  # Force all actions to run on Node.js 24 runtime (required from 2026-06-02)
+  STAGING_HEALTH_URL: http://127.0.0.1:3002/
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: staging-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ── CI: lint · unit tests · build · e2e ────────────────────────────────────
+  # ── CI: same gates as production ───────────────────────────────────────────
   ci:
     name: CI
     runs-on: ubuntu-latest
@@ -74,21 +73,21 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-staging
           path: |
             playwright-report
             test-results
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 3
 
-  # ── CD: build & push Docker image to GHCR (main branch only) ───────────────
+  # ── CD: build & push staging image, deploy to staging server ───────────────
   cd:
-    name: CD
+    name: CD (staging)
     needs: ci
     runs-on: ubuntu-latest
     environment:
-      name: production
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      name: staging
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
 
     permissions:
       contents: read
@@ -104,39 +103,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=sha-,format=long
-            type=raw,value=latest
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build and push staging image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop-sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Sync docker-compose.yml to server
+      - name: Sync docker-compose.staging.yml to server
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: docker-compose.yml
-          target: /opt/e2e-viz/
+          source: docker-compose.staging.yml
+          target: /opt/e2e-viz-staging/
           overwrite: true
 
-      - name: Deploy to server
+      - name: Deploy to staging
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -144,17 +135,10 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -eu
-            IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
-            COMPOSE_BASE="/opt/e2e-viz/docker-compose.yml"
-            OVERRIDE_FILE="/tmp/e2e-viz-image.override.yml"
-            ROLLBACK_FILE="/tmp/e2e-viz-rollback.override.yml"
-            HEALTH_URL="${{ env.DEPLOY_HEALTH_URL }}"
-
-            # Record the currently-running image before the update so we can
-            # roll back if the new version fails its health check.
-            PREV_CONTAINER=$(docker compose -f "${COMPOSE_BASE}" ps -q app 2>/dev/null || true)
-            PREV_IMAGE=$(docker inspect "${PREV_CONTAINER}" \
-              --format='{{.Config.Image}}' 2>/dev/null || true)
+            IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop-sha-${{ github.sha }}"
+            COMPOSE_BASE="/opt/e2e-viz-staging/docker-compose.staging.yml"
+            OVERRIDE_FILE="/tmp/e2e-viz-staging-image.override.yml"
+            HEALTH_URL="${{ env.STAGING_HEALTH_URL }}"
 
             cat > "${OVERRIDE_FILE}" <<EOF
             services:
@@ -173,12 +157,11 @@ jobs:
               fi
             }
 
-            for attempt in $(seq 1 30); do
+            for attempt in $(seq 1 20); do
               if healthcheck; then
-                # Remove old images for this project only (keep current SHA and latest).
                 docker images "ghcr.io/xueyouxz/e2e-viz" \
                   --format "{{.ID}}\t{{.Tag}}" \
-                  | grep -v -E "(sha-${{ github.sha }}|latest)" \
+                  | grep -v -E "(develop-sha-${{ github.sha }}|develop$|latest)" \
                   | awk '{print $1}' | sort -u \
                   | xargs -r docker rmi 2>/dev/null || true
                 exit 0
@@ -186,19 +169,6 @@ jobs:
               sleep 2
             done
 
-            echo "::error::Health check failed after 30 attempts."
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" ps
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" logs --tail=100 app
-
-            # Roll back to the previous image if one was recorded.
-            if [ -n "${PREV_IMAGE}" ] && [ "${PREV_IMAGE}" != "${IMAGE_REF}" ]; then
-              echo "Rolling back to ${PREV_IMAGE} ..."
-              cat > "${ROLLBACK_FILE}" <<EOF
-            services:
-              app:
-                image: ${PREV_IMAGE}
-            EOF
-              docker compose -f "${COMPOSE_BASE}" -f "${ROLLBACK_FILE}" up -d app
-              echo "Rollback complete."
-            fi
+            echo "::error::Staging health check failed."
+            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" logs --tail=50 app
             exit 1
