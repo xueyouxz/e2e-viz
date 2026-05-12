@@ -2,7 +2,7 @@ services:
   app:
     image: ghcr.io/xueyouxz/e2e-viz:latest
     ports:
-      - "3001:80"
+      - "127.0.0.1:3001:80"
     volumes:
       # Data lives on the host at /srv/e2e-viz/data and is served by nginx
       # under the /data/ URL prefix. Update data independently of the image.
