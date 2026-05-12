@@ -1,5 +1,6 @@
 // DOM-free — safe to run in a Web Worker.
 import { parseGlb, readAccessor, readImageBytes } from './GlbReader'
+import type { GlbJson } from './GlbReader'
 import type { EgoPose, RawDecodedFrame, RawStreamPayload, StreamMeta } from '../types'
 
 interface NuvizStateUpdate {
@@ -16,12 +17,7 @@ interface NuvizStateUpdate {
   }
 }
 
-function decodePoint(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
-  bin: DataView,
-  p: Record<string, unknown>,
-): RawStreamPayload {
+function decodePoint(json: GlbJson, bin: DataView, p: Record<string, unknown>): RawStreamPayload {
   const points = (readAccessor(json, bin, p.points as string) as Float32Array).slice()
   let intensity: Float32Array | null = null
   if (typeof p.INTENSITY === 'string') {
@@ -31,12 +27,11 @@ function decodePoint(
 }
 
 function decodePath(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
+  json: GlbJson,
   bin: DataView,
   p: Record<string, unknown>,
   streamName: string,
-  streamsMeta: Record<string, StreamMeta>,
+  streamsMeta: Record<string, StreamMeta>
 ): RawStreamPayload {
   const vertices = (readAccessor(json, bin, p.vertices as string) as Float32Array).slice()
   const offsets = (readAccessor(json, bin, p.offsets as string) as Uint32Array).slice()
@@ -45,12 +40,7 @@ function decodePath(
   return { _raw: rawType, vertices, offsets, count }
 }
 
-function decodeCuboid(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
-  bin: DataView,
-  p: Record<string, unknown>,
-): RawStreamPayload {
+function decodeCuboid(json: GlbJson, bin: DataView, p: Record<string, unknown>): RawStreamPayload {
   const centers = (readAccessor(json, bin, p.CENTER as string) as Float32Array).slice()
   const sizes = (readAccessor(json, bin, p.SIZE as string) as Float32Array).slice()
   const rotations = (readAccessor(json, bin, p.ROTATION as string) as Float32Array).slice()
@@ -67,17 +57,10 @@ function decodeCuboid(
   return { _raw: 'cuboid', centers, sizes, rotations, classIds, trackIds, scores, count }
 }
 
-function decodeImage(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
-  bin: DataView,
-  p: Record<string, unknown>,
-): RawStreamPayload {
+function decodeImage(json: GlbJson, bin: DataView, p: Record<string, unknown>): RawStreamPayload {
   const { bytes, mimeType } = readImageBytes(json, bin, p.image as string)
   const bounds =
-    p.bounds &&
-    typeof p.bounds === 'object' &&
-    'min_x' in p.bounds
+    p.bounds && typeof p.bounds === 'object' && 'min_x' in p.bounds
       ? (p.bounds as { min_x: number; min_y: number; max_x: number; max_y: number })
       : undefined
   return {
@@ -86,16 +69,16 @@ function decodeImage(
     mimeType,
     width: (p.width as number) ?? 0,
     height: (p.height as number) ?? 0,
-    bounds,
+    bounds
   }
 }
 
 export function parseMessage(
   buffer: ArrayBuffer,
-  streamsMeta: Record<string, StreamMeta> = {},
+  streamsMeta: Record<string, StreamMeta> = {}
 ): RawDecodedFrame {
   const { json, bin } = parseGlb(buffer)
-  const root = json as NuvizStateUpdate
+  const root = json as unknown as NuvizStateUpdate
   const { update_type, updates } = root.nuviz.data
   const update = updates[0]
 
@@ -127,7 +110,7 @@ export function parseMessage(
     updateType: update_type,
     timestamp: update.timestamp,
     egoPose,
-    patches,
+    patches
   }
 }
 
@@ -144,7 +127,7 @@ export function collectTransferables(frame: RawDecodedFrame): Transferable[] {
         payload.centers.buffer,
         payload.sizes.buffer,
         payload.rotations.buffer,
-        payload.classIds.buffer,
+        payload.classIds.buffer
       )
       if (payload.trackIds) transferables.push(payload.trackIds.buffer)
       if (payload.scores) transferables.push(payload.scores.buffer)

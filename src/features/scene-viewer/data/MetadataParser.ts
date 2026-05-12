@@ -1,4 +1,5 @@
 import { parseGlb, readAccessor, readImageBytes, readUint8Accessor } from './GlbReader'
+import type { GlbJson } from './GlbReader'
 import type {
   SceneMetadata,
   SceneStatistics,
@@ -8,21 +9,50 @@ import type {
   PolygonPayload,
   ImagePayload,
   ImageBounds,
-  CameraInfo,
+  CameraInfo
 } from '../types'
+
+interface NuvizAccessorRef {
+  frame_indices?: string
+  values?: string
+}
+
+interface NuvizStatisticsRaw {
+  ego_state?: {
+    speed?: NuvizAccessorRef
+    acceleration?: NuvizAccessorRef
+  }
+  object_counts?: Record<
+    string,
+    {
+      total?: NuvizAccessorRef
+      categories?: Record<string, NuvizAccessorRef>
+    }
+  >
+  metrics?: Record<string, { values?: string; dtype?: string }>
+  timeline?: NuvizAccessorRef
+}
+
+interface NuvizMetadataData {
+  streams?: Record<string, { type: string; coordinate?: string; category?: string }>
+  cameras?: Record<string, CameraInfo>
+  statistics?: NuvizStatisticsRaw
+  map?: Record<string, unknown>
+  scene_name?: string
+  scene_description?: string
+}
 
 interface NuvizMetadataRoot {
   nuviz: {
     type: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: any
+    data: NuvizMetadataData
   }
 }
 
 function expandSparse(
   frameIndices: ArrayLike<number>,
   values: ArrayLike<number>,
-  frameCount: number,
+  frameCount: number
 ): Float32Array<ArrayBuffer> {
   const dense = new Float32Array(frameCount)
   for (let i = 0; i < frameIndices.length; i++) {
@@ -32,8 +62,12 @@ function expandSparse(
   return dense
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseStatistics(stats: any, json: unknown, bin: DataView, frameCount: number): SceneStatistics {
+function parseStatistics(
+  stats: NuvizStatisticsRaw,
+  json: GlbJson,
+  bin: DataView,
+  frameCount: number
+): SceneStatistics {
   let egoSpeed: Float32Array | null = null
   let egoAcceleration: Float32Array | null = null
 
@@ -41,44 +75,47 @@ function parseStatistics(stats: any, json: unknown, bin: DataView, frameCount: n
     if (stats?.ego_state?.speed?.values) {
       egoSpeed = (readAccessor(json, bin, stats.ego_state.speed.values) as Float32Array).slice()
     }
-  } catch { /* optional field */ }
+  } catch {
+    /* optional field */
+  }
 
   try {
     if (stats?.ego_state?.acceleration?.values) {
-      egoAcceleration = (readAccessor(json, bin, stats.ego_state.acceleration.values) as Float32Array).slice()
+      egoAcceleration = (
+        readAccessor(json, bin, stats.ego_state.acceleration.values) as Float32Array
+      ).slice()
     }
-  } catch { /* optional field */ }
+  } catch {
+    /* optional field */
+  }
 
   const objectCounts: Record<string, ObjectCountSeries> = {}
-  const rawCounts = stats?.object_counts as Record<string, unknown> | undefined
+  const rawCounts = stats?.object_counts
   if (rawCounts) {
-    for (const [streamName, rawSeries] of Object.entries(rawCounts)) {
-      if (!rawSeries || typeof rawSeries !== 'object') continue
-      const s = rawSeries as Record<string, unknown>
-
+    for (const [streamName, series] of Object.entries(rawCounts)) {
       let total = new Float32Array(frameCount)
       try {
-        const totalEntry = s.total as Record<string, string> | undefined
-        if (totalEntry?.frame_indices && totalEntry?.values) {
-          const fi = (readAccessor(json, bin, totalEntry.frame_indices) as Uint32Array).slice()
-          const vs = (readAccessor(json, bin, totalEntry.values) as Uint32Array).slice()
+        if (series.total?.frame_indices && series.total?.values) {
+          const fi = (readAccessor(json, bin, series.total.frame_indices) as Uint32Array).slice()
+          const vs = (readAccessor(json, bin, series.total.values) as Uint32Array).slice()
           total = expandSparse(fi, vs, frameCount)
         }
-      } catch { /* optional */ }
+      } catch {
+        /* optional */
+      }
 
       const categories: Record<string, Float32Array> = {}
-      const rawCats = s.categories as Record<string, unknown> | undefined
-      if (rawCats) {
-        for (const [catName, catEntry] of Object.entries(rawCats)) {
-          if (!catEntry || typeof catEntry !== 'object') continue
-          const c = catEntry as Record<string, string>
+      if (series.categories) {
+        for (const [catName, cat] of Object.entries(series.categories)) {
           try {
-            if (c.frame_indices && c.values) {
-              const fi = (readAccessor(json, bin, c.frame_indices) as Uint32Array).slice()
-              const vs = (readAccessor(json, bin, c.values) as Uint32Array).slice()
+            if (cat.frame_indices && cat.values) {
+              const fi = (readAccessor(json, bin, cat.frame_indices) as Uint32Array).slice()
+              const vs = (readAccessor(json, bin, cat.values) as Uint32Array).slice()
               categories[catName] = expandSparse(fi, vs, frameCount)
             }
-          } catch { /* optional */ }
+          } catch {
+            /* optional */
+          }
         }
       }
 
@@ -87,23 +124,21 @@ function parseStatistics(stats: any, json: unknown, bin: DataView, frameCount: n
   }
 
   const metrics: Record<string, Float32Array> = {}
-  const rawMetrics = stats?.metrics as Record<string, unknown> | undefined
-  if (rawMetrics) {
-    for (const [metricName, rawMetric] of Object.entries(rawMetrics)) {
-      if (!rawMetric || typeof rawMetric !== 'object') continue
-      const m = rawMetric as Record<string, unknown>
-      const valuesRef = m.values
-      if (typeof valuesRef !== 'string') continue
+  if (stats?.metrics) {
+    for (const [metricName, metric] of Object.entries(stats.metrics)) {
+      if (!metric.values) continue
       try {
-        if (m.dtype === 'uint8') {
-          const raw = readUint8Accessor(json, bin, valuesRef)
+        if (metric.dtype === 'uint8') {
+          const raw = readUint8Accessor(json, bin, metric.values)
           const f32 = new Float32Array(raw.length)
           for (let i = 0; i < raw.length; i++) f32[i] = raw[i]
           metrics[metricName] = f32
         } else {
-          metrics[metricName] = (readAccessor(json, bin, valuesRef) as Float32Array).slice()
+          metrics[metricName] = (readAccessor(json, bin, metric.values) as Float32Array).slice()
         }
-      } catch { /* optional */ }
+      } catch {
+        /* optional */
+      }
     }
   }
 
@@ -130,22 +165,21 @@ export interface MetadataParseResult {
 export function parseMetadata(
   buffer: ArrayBuffer,
   totalFrames: number,
-  logInfo: { start_time: number; end_time: number },
+  logInfo: { start_time: number; end_time: number }
 ): MetadataParseResult {
   const { json, bin } = parseGlb(buffer)
-  const root = json as NuvizMetadataRoot
+  const root = json as unknown as NuvizMetadataRoot
   const data = root.nuviz.data
 
   // ── Streams ────────────────────────────────────────────────────────────────
-  const rawStreams: Record<string, { type: string; coordinate: string; category: string }> =
-    data.streams ?? {}
+  const rawStreams = data.streams ?? {}
 
   const streams: Record<string, StreamMeta> = {}
   for (const [name, meta] of Object.entries(rawStreams)) {
     streams[name] = {
       type: meta.type as StreamMeta['type'],
       coordinate: (meta.coordinate as StreamMeta['coordinate']) ?? 'world',
-      category: meta.category ?? 'PRIMITIVE',
+      category: meta.category ?? 'PRIMITIVE'
     }
   }
 
@@ -154,7 +188,7 @@ export function parseMetadata(
 
   // ── Statistics / timeline ─────────────────────────────────────────────────
   let timestamps: Float32Array | null = null
-  const stats = data.statistics
+  const stats: NuvizStatisticsRaw | undefined = data.statistics
   if (stats?.timeline?.values) {
     try {
       timestamps = (readAccessor(json, bin, stats.timeline.values) as Float32Array).slice()
@@ -166,7 +200,8 @@ export function parseMetadata(
   const statistics = stats ? parseStatistics(stats, json, bin, totalFrames) : null
 
   const sceneName: string = typeof data.scene_name === 'string' ? data.scene_name : ''
-  const sceneDescription: string = typeof data.scene_description === 'string' ? data.scene_description : ''
+  const sceneDescription: string =
+    typeof data.scene_description === 'string' ? data.scene_description : ''
 
   const metadata: SceneMetadata = {
     streams,
@@ -176,7 +211,7 @@ export function parseMetadata(
     timestamps,
     statistics,
     sceneName,
-    sceneDescription,
+    sceneDescription
   }
 
   // ── Static map stream payloads → initialStreamState ───────────────────────
@@ -202,7 +237,7 @@ export function parseMetadata(
           url,
           width: (p.width as number) ?? 0,
           height: (p.height as number) ?? 0,
-          bounds: hasImageBounds(p.bounds) ? p.bounds : undefined,
+          bounds: hasImageBounds(p.bounds) ? p.bounds : undefined
         }
         initialStreamState[streamName] = imgPayload
       } catch {

@@ -18,3 +18,9 @@ export type WorkerInMessage = WorkerInitMessage | WorkerParseRequest
 export type WorkerParseResponse =
   | { id: number; ok: true; frame: RawDecodedFrame }
   | { id: number; ok: false; error: string }
+
+export function isWorkerParseResponse(data: unknown): data is WorkerParseResponse {
+  if (!data || typeof data !== 'object') return false
+  const d = data as Record<string, unknown>
+  return typeof d.id === 'number' && typeof d.ok === 'boolean'
+}

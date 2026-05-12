@@ -1,12 +1,7 @@
 import { parseMetadata } from './MetadataParser'
 import { parseMessage } from './MessageParser'
-import type { WorkerParseResponse } from './workers/workerMessages'
-import type {
-  MessageIndex,
-  RawDecodedFrame,
-  StreamMeta,
-  StreamPayload,
-} from '../types'
+import { isWorkerParseResponse } from './workers/workerMessages'
+import type { EgoPose, MessageIndex, RawDecodedFrame, StreamMeta, StreamPayload } from '../types'
 import type { MetadataParseResult } from './MetadataParser'
 
 const PREFETCH_BACK = 15
@@ -26,11 +21,11 @@ class MessageParserWorker {
   constructor() {
     if (typeof Worker === 'undefined') return
     try {
-      this.worker = new Worker(
-        new URL('./workers/messageParse.worker.ts', import.meta.url),
-        { type: 'module' },
-      )
-      this.worker.onmessage = (e: MessageEvent<WorkerParseResponse>) => {
+      this.worker = new Worker(new URL('./workers/messageParse.worker.ts', import.meta.url), {
+        type: 'module'
+      })
+      this.worker.onmessage = (e: MessageEvent<unknown>) => {
+        if (!isWorkerParseResponse(e.data)) return
         const { id } = e.data
         const p = this.pending.get(id)
         if (!p) return
@@ -41,7 +36,7 @@ class MessageParserWorker {
           p.reject(new Error(e.data.error))
         }
       }
-      this.worker.onerror = (e) => {
+      this.worker.onerror = e => {
         this.rejectAll(new Error(e.message || 'Worker error'))
       }
     } catch {
@@ -91,14 +86,14 @@ function materializeFrame(raw: RawDecodedFrame): {
         type: 'polyline',
         vertices: payload.vertices,
         offsets: payload.offsets,
-        count: payload.count,
+        count: payload.count
       }
     } else if (payload._raw === 'polygon') {
       patches[streamName] = {
         type: 'polygon',
         vertices: payload.vertices,
         offsets: payload.offsets,
-        count: payload.count,
+        count: payload.count
       }
     } else if (payload._raw === 'cuboid') {
       patches[streamName] = {
@@ -109,19 +104,17 @@ function materializeFrame(raw: RawDecodedFrame): {
         classIds: payload.classIds,
         trackIds: payload.trackIds,
         scores: payload.scores,
-        count: payload.count,
+        count: payload.count
       }
     } else if (payload._raw === 'image') {
-      const url = URL.createObjectURL(
-        new Blob([payload.bytes], { type: payload.mimeType }),
-      )
+      const url = URL.createObjectURL(new Blob([payload.bytes], { type: payload.mimeType }))
       imageUrls.push(url)
       patches[streamName] = {
         type: 'image',
         url,
         width: payload.width,
         height: payload.height,
-        bounds: payload.bounds,
+        bounds: payload.bounds
       }
     }
   }
@@ -131,7 +124,7 @@ function materializeFrame(raw: RawDecodedFrame): {
 
 export type FrameCacheEntry = {
   updateType: 'COMPLETE_STATE' | 'INCREMENTAL'
-  egoPose: import('../types').EgoPose | null
+  egoPose: EgoPose | null
   patches: Record<string, StreamPayload>
   imageUrls: string[]
 }
@@ -174,11 +167,10 @@ export class SceneDataManager {
     // We do NOT parse yet — parsing must happen after setStreamsMeta.
     let frame0BufferPromise: Promise<ArrayBuffer> | null = null
     if (messages.length > 0 && !this.destroyed) {
-      frame0BufferPromise = fetch(`${this.baseUrl}${messages[0].file}`)
-        .then((r) => {
-          if (!r.ok) throw new Error(`frame 0 prefetch: ${r.status}`)
-          return r.arrayBuffer()
-        })
+      frame0BufferPromise = fetch(`${this.baseUrl}${messages[0].file}`).then(r => {
+        if (!r.ok) throw new Error(`frame 0 prefetch: ${r.status}`)
+        return r.arrayBuffer()
+      })
     }
 
     const metaRes = await fetch(`${this.baseUrl}${metadataFile}`)
@@ -187,7 +179,7 @@ export class SceneDataManager {
     const result = parseMetadata(
       await metaRes.arrayBuffer(),
       messages.length,
-      this.messageIndex.log_info,
+      this.messageIndex.log_info
     )
     this.streamsMeta = result.metadata.streams
     this.metadataResult = result
@@ -199,14 +191,14 @@ export class SceneDataManager {
     // Now enqueue frame 0 parse — worker already has streamsMeta.
     if (frame0BufferPromise && !this.destroyed) {
       const frame0Entry: Promise<FrameCacheEntry> = frame0BufferPromise
-        .then((buf) => this.worker.parse(buf))
-        .then((raw) => {
+        .then(buf => this.worker.parse(buf))
+        .then(raw => {
           const { patches, imageUrls } = materializeFrame(raw)
           const entry: FrameCacheEntry = {
             updateType: raw.updateType,
             egoPose: raw.egoPose,
             patches,
-            imageUrls,
+            imageUrls
           }
           this.cache.set(0, entry)
           this.onCacheUpdate?.()
@@ -215,7 +207,7 @@ export class SceneDataManager {
       this.inFlight.set(0, frame0Entry)
       frame0Entry.then(
         () => this.inFlight.delete(0),
-        () => this.inFlight.delete(0),
+        () => this.inFlight.delete(0)
       )
     }
 
@@ -249,7 +241,7 @@ export class SceneDataManager {
         updateType: raw.updateType,
         egoPose: raw.egoPose,
         patches,
-        imageUrls,
+        imageUrls
       }
 
       this.cache.set(frameIndex, materialized)
@@ -261,7 +253,7 @@ export class SceneDataManager {
     this.inFlight.set(frameIndex, promise)
     promise.then(
       () => this.inFlight.delete(frameIndex),
-      () => this.inFlight.delete(frameIndex),
+      () => this.inFlight.delete(frameIndex)
     )
     return promise
   }
@@ -300,7 +292,7 @@ export class SceneDataManager {
   private pruneCache(centerIndex: number): void {
     if (this.cache.size <= MAX_CACHED_FRAMES) return
     const outside = [...this.cache.keys()]
-      .filter((k) => k < centerIndex - PREFETCH_BACK || k > centerIndex + PREFETCH_FORWARD)
+      .filter(k => k < centerIndex - PREFETCH_BACK || k > centerIndex + PREFETCH_FORWARD)
       .sort((a, b) => Math.abs(b - centerIndex) - Math.abs(a - centerIndex))
 
     for (const key of outside) {

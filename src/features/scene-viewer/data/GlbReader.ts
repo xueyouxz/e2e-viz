@@ -1,12 +1,37 @@
 // GLB (glTF 2.0 Binary) reader — DOM-free, safe to run in a Web Worker.
 
+interface GlbAccessor {
+  bufferView: number
+  byteOffset?: number
+  componentType: number
+  count: number
+  type: string
+}
+
+interface GlbBufferView {
+  byteOffset: number
+  byteLength: number
+}
+
+interface GlbImage {
+  bufferView: number
+  mimeType: string
+}
+
+export interface GlbJson {
+  accessors: GlbAccessor[]
+  bufferViews: GlbBufferView[]
+  images?: GlbImage[]
+  [key: string]: unknown
+}
+
 const GLB_MAGIC = 0x46546c67
 const CHUNK_JSON = 0x4e4f534a
 const CHUNK_BIN = 0x004e4942
 
 const COMPONENT_TYPE = {
   FLOAT: 5126,
-  UNSIGNED_INT: 5125,
+  UNSIGNED_INT: 5125
 } as const
 
 const TYPE_COMPONENTS: Record<string, number> = {
@@ -16,12 +41,11 @@ const TYPE_COMPONENTS: Record<string, number> = {
   VEC4: 4,
   MAT2: 4,
   MAT3: 9,
-  MAT4: 16,
+  MAT4: 16
 }
 
 export interface GlbData {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any
+  json: GlbJson
   bin: DataView
 }
 
@@ -48,8 +72,7 @@ export function parseGlb(buffer: ArrayBuffer): GlbData {
     throw new Error(`Expected JSON chunk, got 0x${jsonChunkType.toString(16)}`)
 
   const jsonText = new TextDecoder().decode(new Uint8Array(buffer, offset, jsonChunkLength))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = JSON.parse(jsonText)
+  const json = JSON.parse(jsonText) as GlbJson
   offset += jsonChunkLength
 
   let bin: DataView = new DataView(new ArrayBuffer(0))
@@ -67,10 +90,9 @@ export function parseGlb(buffer: ArrayBuffer): GlbData {
 }
 
 export function readAccessor(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
+  json: GlbJson,
   bin: DataView,
-  ref: string,
+  ref: string
 ): Float32Array | Uint32Array {
   const idx = parseInt(ref.split('/').pop()!, 10)
   const acc = json.accessors[idx]
@@ -90,12 +112,7 @@ export function readAccessor(
   return new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
 }
 
-export function readUint8Accessor(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
-  bin: DataView,
-  ref: string,
-): Uint8Array {
+export function readUint8Accessor(json: GlbJson, bin: DataView, ref: string): Uint8Array {
   const idx = parseInt(ref.split('/').pop()!, 10)
   const acc = json.accessors[idx]
   const bv = json.bufferViews[acc.bufferView]
@@ -106,14 +123,10 @@ export function readUint8Accessor(
   return new Uint8Array(bin.buffer, byteOffset, elementCount)
 }
 
-export function readImageBytes(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  json: any,
-  bin: DataView,
-  ref: string,
-): ImageBytes {
+export function readImageBytes(json: GlbJson, bin: DataView, ref: string): ImageBytes {
   const idx = parseInt(ref.split('/').pop()!, 10)
-  const imgMeta = json.images[idx]
+  const imgMeta = json.images?.[idx]
+  if (!imgMeta) throw new Error(`Image ${idx} not found in GLB`)
   const bv = json.bufferViews[imgMeta.bufferView]
   const byteOffset = bin.byteOffset + bv.byteOffset
   const imgSrc = new Uint8Array(bin.buffer, byteOffset, bv.byteLength)
