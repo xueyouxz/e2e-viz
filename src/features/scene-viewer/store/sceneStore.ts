@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import type { EgoPose, SceneMetadata, SceneStatistics, StreamMeta, StreamPayload } from '../types'
 
 export type CameraMode = 'follow' | 'free' | 'bev'
-export type Theme = 'dark' | 'light'
 
 const DEFAULT_HIDDEN = new Set([
   '/lidar',
@@ -30,7 +29,6 @@ export interface SceneState {
 
   cameraMode: CameraMode
   visibleStreams: Record<string, boolean>
-  theme: Theme
 
   bufferEndFrame: number
 
@@ -38,7 +36,6 @@ export interface SceneState {
   setSelectedTrackId: (id: number | null) => void
 
   setMetadata: (meta: SceneMetadata, initialStreamState: Record<string, StreamPayload>) => void
-  setTheme: (theme: Theme) => void
   setFrame: (
     updateType: 'COMPLETE_STATE' | 'INCREMENTAL',
     egoPose: EgoPose | null,
@@ -71,7 +68,6 @@ export function createSceneStore() {
     bufferEndFrame: 0,
     cameraMode: 'free',
     visibleStreams: {},
-    theme: 'light',
     selectedTrackId: null,
 
     setMetadata: (meta, initialStreamState) =>
@@ -114,7 +110,6 @@ export function createSceneStore() {
     pause: () => set({ isPlaying: false }),
     setPlaybackSpeed: (s) => set({ playbackSpeed: s }),
     setCameraMode: (m) => set({ cameraMode: m }),
-    setTheme: (theme) => set({ theme }),
     setSelectedTrackId: (id) => set({ selectedTrackId: id }),
     toggleStream: (name) =>
       set((state) => ({

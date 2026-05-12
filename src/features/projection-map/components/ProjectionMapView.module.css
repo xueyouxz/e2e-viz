@@ -50,27 +50,27 @@
 
 /* Selected scene dot — uses --sel-r (~52 % of scatter-r) for constant screen size. */
 .selectedDot {
-  r: var(--sel-r, 2.08);
-  opacity: 1;
   pointer-events: none;
+  opacity: 1;
+  r: var(--sel-r, 2.08);
 }
 
 /* Lasso polygon drawn imperatively by D3 */
 .lassoPath {
+  pointer-events: none;
   fill: rgb(37 99 235 / 10%);
   stroke: #2563eb;
-  stroke-width: 1.5px;
   stroke-dasharray: 6 3;
-  pointer-events: none;
+  stroke-width: 1.5px;
 }
 
 /* Smooth convex hull bubble shown after lasso selection (data-space, inside zoom layer) */
 .selectionBubble {
+  pointer-events: none;
   fill: rgb(37 99 235 / 7%);
   stroke: rgb(37 99 235 / 40%);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
-  pointer-events: none;
 }
 
 /* Overlay controls */
@@ -78,10 +78,10 @@
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 10;
   display: flex;
   gap: 8px;
   align-items: center;
-  z-index: 10;
   pointer-events: none;
 }
 
@@ -98,7 +98,7 @@
   height: 28px;
   padding: 0;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgb(255 255 255 / 80%);
   border: none;
   border-radius: 4px;
   transition: color 120ms, background 120ms;
@@ -110,7 +110,7 @@
 
 .lassoBtn:hover {
   color: #2563eb;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgb(255 255 255 / 95%);
 }
 
 .lassoActive {
@@ -121,14 +121,14 @@
 .lassoIcon {
   width: 18px;
   height: 18px;
-  fill: currentColor;
+  fill: currentcolor;
 }
 
 .datasetToggles {
   display: flex;
   gap: 2px;
   padding: 2px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgb(255 255 255 / 80%);
   border: none;
   border-radius: 4px;
 }

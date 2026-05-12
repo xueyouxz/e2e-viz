@@ -8,8 +8,8 @@
   flex-direction: column;
   height: 40%;
   overflow: hidden;
-  background: var(--sv2-panel-bg-solid);
-  border-top: 1px solid var(--sv2-border);
+  background: var(--app-panel-bg-solid);
+  border-top: 1px solid var(--app-border);
 }
 
 /* ── 2×3 grid ─────────────────────────────────────────────────────────────── */
@@ -22,7 +22,7 @@
   min-height: 0;
   padding: 1px;
   overflow: hidden;
-  background: var(--sv2-grid-gap);
+  background: var(--app-grid-gap);
 }
 
 .row {
@@ -41,7 +41,7 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--sv2-cell-bg);
+  background: var(--app-cell-bg);
 }
 
 .mediaWrap {
@@ -74,7 +74,7 @@
   justify-content: center;
   min-height: 0;
   font-size: 10px;
-  color: var(--sv2-placeholder-text);
+  color: var(--app-placeholder-text);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

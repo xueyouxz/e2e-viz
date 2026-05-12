@@ -77,7 +77,6 @@ function FrameDataSync() {
 
 function SceneViewerInner() {
   const streamsMeta   = useSceneStore((s) => s.streamsMeta)
-  const theme         = useSceneStore((s) => s.theme)
   const cameraMode    = useSceneStore((s) => s.cameraMode)
   const setCameraMode = useSceneStore((s) => s.setCameraMode)
 
@@ -101,7 +100,7 @@ function SceneViewerInner() {
   }, [streamsMeta])
 
   return (
-    <div className={styles.root} data-theme={theme}>
+    <div className={styles.root}>
       <FrameDataSync />
 
       <div className={styles.canvasArea}>

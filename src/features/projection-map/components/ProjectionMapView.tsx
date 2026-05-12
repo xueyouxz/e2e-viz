@@ -296,7 +296,7 @@ export function ProjectionMapView({
       const cx = scales.x(p.tsne_comp1), cy = scales.y(p.tsne_comp2)
       return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1
     })
-  }, [glyphsActive, points, visibleGlyphPoints, scales, viewport])
+  }, [glyphsActive, visibleGlyphPoints, scales, viewport])
 
   // ─── Selection set ───────────────────────────────────────────────────────────
 

@@ -30,8 +30,8 @@
 
 .controlRow {
   display: flex;
-  align-items: flex-end;
   gap: 10px;
+  align-items: flex-end;
 }
 
 .ruler {
@@ -55,8 +55,8 @@
   left: 50%;
   font-size: 11px;
   font-weight: 700;
-  line-height: 1;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
   color: var(--timeline-tick-label-color);
   letter-spacing: 0;
   white-space: nowrap;
@@ -108,21 +108,21 @@
 .trackInteractive {
   position: relative;
   height: calc(var(--timeline-knob-size) + 4px);
-  cursor: pointer;
   touch-action: none;
+  cursor: pointer;
 }
 
 /* Track bar is absolutely positioned so its height changes stay out of flow */
 .track {
   position: absolute;
-  left: 0;
-  right: 0;
   top: 50%;
-  transform: translateY(-50%);
+  right: 0;
+  left: 0;
   height: var(--timeline-track-height);
   background: var(--timeline-track-bg);
   border-radius: calc(var(--timeline-track-height) / 2);
   transition: height 0.15s ease;
+  transform: translateY(-50%);
 }
 
 .trackInteractive:hover .track {
@@ -156,9 +156,9 @@
 .progressFill {
   z-index: 2;
   width: 100%;
-  transform-origin: left center;
   background: var(--timeline-track-fill);
   transition: transform 0.3s ease;
+  transform-origin: left center;
 }
 
 .marker {
@@ -167,6 +167,7 @@
 }
 
 /* Knob is a sibling of .track, positioned relative to .trackInteractive */
+
 /* left:0 is the anchor; transform:translateX() moves it along the track */
 .knob {
   position: absolute;

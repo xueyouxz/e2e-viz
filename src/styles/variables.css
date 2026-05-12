@@ -1,11 +1,84 @@
+/* ── Static tokens (theme-independent) ───────────────────────────────────── */
+
 :root {
-  --color-text: #1a2332;
-  --color-muted: #5a6a7a;
-  --color-accent: #2563eb;
-  --color-border: #e2e6ea;
-  --color-border-strong: #c8cdd2;
-  --color-surface: #f8f9fa;
   --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  --color-accent: #2563eb;
+}
+
+/* ── Dark theme ───────────────────────────────────────────────────────────── */
+
+:root[data-theme='dark'] {
+  --app-panel-bg: rgb(12 12 16 / 72%);
+  --app-panel-bg-solid: rgb(12 12 16 / 92%);
+  --app-panel-bg-menu: rgb(18 18 24 / 96%);
+  --app-cell-bg: #111115;
+  --app-bg-hover: rgb(30 30 40 / 95%);
+  --app-text-strong: rgb(255 255 255 / 88%);
+  --app-text-primary: rgb(255 255 255 / 72%);
+  --app-text-label: rgb(255 255 255 / 50%);
+  --app-text-dim: rgb(255 255 255 / 38%);
+  --app-text-faint: rgb(255 255 255 / 28%);
+  --app-text-ghost: rgb(255 255 255 / 12%);
+  --app-text-btn: rgb(255 255 255 / 65%);
+  --app-border: rgb(255 255 255 / 7%);
+  --app-border-btn: rgb(255 255 255 / 10%);
+  --app-border-hover: rgb(255 255 255 / 22%);
+  --app-scrollbar: rgb(255 255 255 / 12%);
+  --app-row-hover: rgb(255 255 255 / 5%);
+  --app-card-bg: rgb(255 255 255 / 4%);
+  --app-card-border: rgb(255 255 255 / 6%);
+  --app-grid-gap: rgb(255 255 255 / 6%);
+  --app-label-overlay-bg: rgb(0 0 0 / 45%);
+  --app-label-overlay-text: rgb(255 255 255 / 55%);
+  --app-placeholder-text: rgb(255 255 255 / 12%);
+  --app-menu-shadow: rgb(0 0 0 / 40%);
+  --app-toggle-active-bg: rgb(255 255 255 / 10%);
+  --app-toggle-active-border: rgb(255 255 255 / 18%);
+
+  /* App-level surface */
+  --app-surface: #0d0d11;
+  --app-surface-raised: #16161d;
+  --app-text: rgb(255 255 255 / 82%);
+  --app-text-muted: rgb(255 255 255 / 45%);
+  --app-page-border: rgb(255 255 255 / 8%);
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+
+:root[data-theme='light'] {
+  --app-panel-bg: rgb(248 249 253 / 76%);
+  --app-panel-bg-solid: rgb(238 240 246 / 95%);
+  --app-panel-bg-menu: rgb(252 253 255 / 97%);
+  --app-cell-bg: #f2f3f8;
+  --app-bg-hover: rgb(225 229 243 / 95%);
+  --app-text-strong: rgb(15 15 25 / 88%);
+  --app-text-primary: rgb(15 15 25 / 72%);
+  --app-text-label: rgb(15 15 25 / 55%);
+  --app-text-dim: rgb(15 15 25 / 42%);
+  --app-text-faint: rgb(15 15 25 / 32%);
+  --app-text-ghost: rgb(15 15 25 / 18%);
+  --app-text-btn: rgb(15 15 25 / 65%);
+  --app-border: rgb(0 0 0 / 8%);
+  --app-border-btn: rgb(0 0 0 / 12%);
+  --app-border-hover: rgb(0 0 0 / 24%);
+  --app-scrollbar: rgb(0 0 0 / 15%);
+  --app-row-hover: rgb(0 0 0 / 4%);
+  --app-card-bg: rgb(0 0 0 / 3%);
+  --app-card-border: rgb(0 0 0 / 7%);
+  --app-grid-gap: rgb(0 0 0 / 8%);
+  --app-label-overlay-bg: rgb(255 255 255 / 85%);
+  --app-label-overlay-text: rgb(0 0 0 / 65%);
+  --app-placeholder-text: rgb(0 0 0 / 18%);
+  --app-menu-shadow: rgb(0 0 0 / 15%);
+  --app-toggle-active-bg: rgb(0 0 0 / 8%);
+  --app-toggle-active-border: rgb(0 0 0 / 18%);
+
+  /* App-level surface */
+  --app-surface: #ffffff;
+  --app-surface-raised: #f8f9fc;
+  --app-text: #18243a;
+  --app-text-muted: #6a7690;
+  --app-page-border: #e4e8f0;
 }

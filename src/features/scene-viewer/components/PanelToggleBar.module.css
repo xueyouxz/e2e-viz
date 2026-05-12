@@ -6,6 +6,7 @@
   left: 50%;
   z-index: 20;
   transform: translateX(-50%);
+
   /* width is driven by .bar; .camOptions is absolute so it never shifts this */
 }
 
@@ -16,29 +17,29 @@
   gap: 3px;
   align-items: center;
   padding: 3px;
-  background: var(--sv2-panel-bg-solid);
-  border: 1px solid var(--sv2-border-btn);
+  background: var(--app-panel-bg-solid);
+  border: 1px solid var(--app-border-btn);
   border-radius: 10px;
 }
 
 .divider {
+  flex-shrink: 0;
   width: 1px;
   height: 18px;
   margin: 0 3px;
-  background: var(--sv2-border-btn);
-  flex-shrink: 0;
+  background: var(--app-border-btn);
 }
 
 /* Panel toggle + camera trigger buttons */
 
 .btn {
   display: flex;
-  align-items: center;
   gap: 5px;
+  align-items: center;
   padding: 5px 10px;
   font-size: 11px;
   font-weight: 500;
-  color: var(--sv2-text-dim);
+  color: var(--app-text-dim);
   letter-spacing: 0.02em;
   cursor: pointer;
   background: none;
@@ -53,13 +54,13 @@
 }
 
 .btn:hover {
-  color: var(--sv2-text-primary);
-  background: var(--sv2-row-hover);
+  color: var(--app-text-primary);
+  background: var(--app-row-hover);
 }
 
 .btnActive {
-  color: var(--sv2-text-primary);
-  background: var(--sv2-toggle-active-bg);
+  color: var(--app-text-primary);
+  background: var(--app-toggle-active-bg);
 }
 
 /* ── Expanded camera options — absolute, to the right of .toolbar ─────────── */
@@ -71,14 +72,15 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  animation: fadeSlide 0.12s ease;
+  animation: fade-slide 0.12s ease;
 }
 
-@keyframes fadeSlide {
+@keyframes fade-slide {
   from {
     opacity: 0;
     transform: translateX(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -92,20 +94,20 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  color: var(--sv2-text-dim);
+  color: var(--app-text-dim);
   cursor: pointer;
-  background: var(--sv2-panel-bg-solid);
+  background: var(--app-panel-bg-solid);
   border: none;
   border-radius: 8px;
   transition: color 0.15s ease;
 }
 
 .camBtn:hover {
-  color: var(--sv2-text-primary);
-  background: var(--sv2-bg-hover);
+  color: var(--app-text-primary);
+  background: var(--app-bg-hover);
 }
 
 .camBtnActive {
-  color: var(--sv2-text-primary);
-  background: var(--sv2-toggle-active-bg);
+  color: var(--app-text-primary);
+  background: var(--app-toggle-active-bg);
 }

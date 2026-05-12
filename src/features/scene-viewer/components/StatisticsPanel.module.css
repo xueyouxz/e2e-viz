@@ -10,8 +10,8 @@
   width: 320px;
   height: 100%;
   overflow: hidden;
-  background: var(--sv2-panel-bg-solid);
-  border-right: 1px solid var(--sv2-border);
+  background: var(--app-panel-bg-solid);
+  border-right: 1px solid var(--app-border);
 }
 
 .header {
@@ -20,13 +20,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--sv2-border);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--sv2-text-label);
+  color: var(--app-text-label);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -37,14 +37,14 @@
   padding: 0 2px;
   font-size: 18px;
   line-height: 1;
-  color: var(--sv2-text-dim);
+  color: var(--app-text-dim);
   cursor: pointer;
   background: none;
   border: none;
 }
 
 .closeBtn:hover {
-  color: var(--sv2-text-strong);
+  color: var(--app-text-strong);
 }
 
 /* ── Scrollable content ───────────────────────────────────────────────────── */
@@ -64,7 +64,7 @@
 }
 
 .content::-webkit-scrollbar-thumb {
-  background: var(--sv2-scrollbar);
+  background: var(--app-scrollbar);
   border-radius: 2px;
 }
 
@@ -82,23 +82,23 @@
   flex-direction: column;
   gap: 3px;
   padding: 8px 8px 7px;
-  background: var(--sv2-card-bg);
-  border: 1px solid var(--sv2-card-border);
+  background: var(--app-card-bg);
+  border: 1px solid var(--app-card-border);
   border-radius: 6px;
 }
 
 .cardValue {
+  overflow: hidden;
   font-size: 12px;
   font-weight: 600;
-  color: var(--sv2-text-strong);
-  white-space: nowrap;
-  overflow: hidden;
+  color: var(--app-text-strong);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cardLabel {
   font-size: 9px;
-  color: var(--sv2-text-dim);
+  color: var(--app-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -106,19 +106,19 @@
 /* ── Section header ───────────────────────────────────────────────────────── */
 
 .sectionHeader {
-  margin: 0 0 8px;
   padding: 12px 0 0;
+  margin: 0 0 8px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--sv2-text-label);
+  color: var(--app-text-label);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  border-top: 1px solid var(--sv2-border);
+  border-top: 1px solid var(--app-border);
 }
 
 .sectionHeader:first-child {
-  border-top: none;
   padding-top: 4px;
+  border-top: none;
 }
 
 /* ── Charts ───────────────────────────────────────────────────────────────── */
@@ -126,9 +126,9 @@
 .chart {
   display: block;
   width: 100%;
+  margin-bottom: 10px;
   overflow: visible;
   cursor: crosshair;
-  margin-bottom: 10px;
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────── */
@@ -151,15 +151,15 @@
   gap: 4px;
   align-items: center;
   font-size: 10px;
-  color: var(--sv2-text-label);
+  color: var(--app-text-label);
 }
 
 .legendDot {
   display: inline-block;
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  flex-shrink: 0;
 }
 
 /* ── Scene info block ─────────────────────────────────────────────────────── */
@@ -167,22 +167,22 @@
 .sceneInfo {
   padding: 6px 0 10px;
   margin-bottom: 2px;
-  border-bottom: 1px solid var(--sv2-border);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .sceneName {
+  margin-bottom: 4px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--sv2-text-strong);
-  margin-bottom: 4px;
-  word-break: break-word;
+  color: var(--app-text-strong);
+  overflow-wrap: anywhere;
 }
 
 .sceneDesc {
   font-size: 10px;
   line-height: 1.45;
-  color: var(--sv2-text-label);
-  word-break: break-word;
+  color: var(--app-text-label);
+  overflow-wrap: anywhere;
 }
 
 /* ── Metrics legend ───────────────────────────────────────────────────────── */
@@ -205,21 +205,21 @@
   padding: 2px 8px;
   font-size: 10px;
   font-weight: 600;
-  color: var(--sv2-text-dim);
+  color: var(--app-text-dim);
   letter-spacing: 0.05em;
+  cursor: pointer;
   background: none;
   border: 1px solid transparent;
   border-radius: 3px;
-  cursor: pointer;
   transition: color 0.12s, border-color 0.12s;
 }
 
 .streamToggleBtn:hover {
-  color: var(--sv2-text-label);
+  color: var(--app-text-label);
 }
 
 .streamToggleBtnActive {
-  color: var(--sv2-text-strong);
-  border-color: var(--sv2-border-btn);
-  background: var(--sv2-card-bg);
+  color: var(--app-text-strong);
+  background: var(--app-card-bg);
+  border-color: var(--app-border-btn);
 }

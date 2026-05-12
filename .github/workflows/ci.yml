@@ -9,8 +9,16 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DEPLOY_HEALTH_URL: http://127.0.0.1:3001/
   # Force all actions to run on Node.js 24 runtime (required from 2026-06-02)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ── CI: lint · unit tests · build · e2e ────────────────────────────────────
@@ -23,10 +31,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Install pnpm
-        run: npm install -g pnpm@10.27.0
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Prepare pnpm
+        run: corepack prepare pnpm@10.27.0 --activate
 
       - name: Get pnpm store path
         id: pnpm-cache
@@ -44,6 +55,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Style lint
+        run: pnpm lint:style
+
       - name: Unit tests
         run: pnpm test
 
@@ -56,11 +70,24 @@ jobs:
       - name: E2E tests
         run: pnpm test:e2e
 
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   # ── CD: build & push Docker image to GHCR (main branch only) ───────────────
   cd:
     name: CD
     needs: ci
     runs-on: ubuntu-latest
+    environment:
+      name: production
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     permissions:
@@ -83,7 +110,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,format=long
             type=raw,value=latest
 
       - name: Set up Docker Buildx
@@ -106,6 +133,36 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            docker compose -f /opt/e2e-viz/docker-compose.yml pull
-            docker compose -f /opt/e2e-viz/docker-compose.yml up -d
-            docker image prune -f
+            set -eu
+            IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+            OVERRIDE_FILE="/tmp/e2e-viz-image.override.yml"
+            HEALTH_URL="${{ env.DEPLOY_HEALTH_URL }}"
+
+            cat > "${OVERRIDE_FILE}" <<EOF
+            services:
+              app:
+                image: ${IMAGE_REF}
+            EOF
+
+            docker compose -f /opt/e2e-viz/docker-compose.yml -f "${OVERRIDE_FILE}" pull app
+            docker compose -f /opt/e2e-viz/docker-compose.yml -f "${OVERRIDE_FILE}" up -d app
+
+            healthcheck() {
+              if command -v curl >/dev/null 2>&1; then
+                curl -fsS "${HEALTH_URL}" >/dev/null
+              else
+                wget -q --spider "${HEALTH_URL}"
+              fi
+            }
+
+            for attempt in $(seq 1 30); do
+              if healthcheck; then
+                docker image prune -f
+                exit 0
+              fi
+              sleep 2
+            done
+
+            docker compose -f /opt/e2e-viz/docker-compose.yml -f "${OVERRIDE_FILE}" ps
+            docker compose -f /opt/e2e-viz/docker-compose.yml -f "${OVERRIDE_FILE}" logs --tail=100 app
+            exit 1

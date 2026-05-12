@@ -8,11 +8,11 @@
 }
 
 .header {
-  flex-shrink: 0;
   display: flex;
+  flex-shrink: 0;
+  gap: 1rem;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
   height: 2.75rem;
   padding: 0 1rem 0 1.25rem;
   background: #fff;
@@ -29,9 +29,9 @@
 
 .headerMeta {
   display: flex;
-  margin-left: auto;
   gap: 0.5rem;
   align-items: center;
+  margin-left: auto;
   font-size: 0.75rem;
   color: #6a7690;
 }
@@ -72,8 +72,8 @@
 
 .lassoBtn:hover {
   color: #2563eb;
-  border-color: #93b4f0;
   background: #f0f5ff;
+  border-color: #93b4f0;
 }
 
 .lassoActive {
@@ -121,17 +121,17 @@
 /* ── Content area (below header) ────────────────────────────────────────── */
 
 .content {
-  flex: 1;
-  min-height: 0;
   display: flex;
+  flex: 1;
   flex-direction: row;
+  min-height: 0;
   overflow: hidden;
 }
 
 .status {
   display: grid;
-  min-height: 100vh;
   place-items: center;
+  min-height: 100vh;
   color: #647084;
   background: #f7f8fb;
 }
@@ -143,10 +143,10 @@
   max-width: min(38rem, calc(100% - 2rem));
   padding: 0.625rem 0.875rem;
   color: #8f1d2c;
-  transform: translateX(-50%);
   background: #fff0f2;
   border: 1px solid #f2bcc5;
   border-radius: 8px;
+  transform: translateX(-50%);
 }
 
 /* ── 3D Scene Modal ───────────────────────────────────────────────────────── */
@@ -159,7 +159,7 @@
   place-items: center;
   background: rgb(10 15 28 / 62%);
   backdrop-filter: blur(3px);
-  animation: fadeIn 160ms ease;
+  animation: fade-in 160ms ease;
 }
 
 .modalPanel {
@@ -171,7 +171,7 @@
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 12px;
   box-shadow: 0 24px 64px rgb(0 0 0 / 55%);
-  animation: slideUp 200ms ease;
+  animation: slide-up 200ms ease;
 }
 
 .modalClose {
@@ -199,8 +199,8 @@
 
 .modalLoading {
   display: grid;
-  height: 100%;
   place-items: center;
+  height: 100%;
   font-size: 0.875rem;
   color: rgb(255 255 255 / 45%);
 }
@@ -221,21 +221,37 @@
   border: 1px solid #f5c97a;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgb(15 23 42 / 12%);
-  animation: fadeIn 160ms ease, fadeOut 300ms ease 3.2s forwards;
+  animation: fade-in 160ms ease, fade-out 300ms ease 3.2s forwards;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px) }
-  to   { opacity: 1; transform: translateY(0) }
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) }
-  to   { opacity: 1; transform: translateY(0) }
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-@keyframes fadeOut {
-  to { opacity: 0 }
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 @media (width <= 720px) {

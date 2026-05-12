@@ -1,75 +1,13 @@
 .root {
-  width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-/* ── Dark theme (default) ─────────────────────────────────────────────────── */
-
-.root[data-theme='dark'] {
-  --sv2-panel-bg: rgb(12 12 16 / 72%);
-  --sv2-panel-bg-solid: rgb(12 12 16 / 92%);
-  --sv2-panel-bg-menu: rgb(18 18 24 / 96%);
-  --sv2-cell-bg: #111115;
-  --sv2-bg-hover: rgb(30 30 40 / 95%);
-  --sv2-text-strong: rgb(255 255 255 / 88%);
-  --sv2-text-primary: rgb(255 255 255 / 72%);
-  --sv2-text-label: rgb(255 255 255 / 50%);
-  --sv2-text-dim: rgb(255 255 255 / 38%);
-  --sv2-text-faint: rgb(255 255 255 / 28%);
-  --sv2-text-ghost: rgb(255 255 255 / 12%);
-  --sv2-text-btn: rgb(255 255 255 / 65%);
-  --sv2-border: rgb(255 255 255 / 7%);
-  --sv2-border-btn: rgb(255 255 255 / 10%);
-  --sv2-border-hover: rgb(255 255 255 / 22%);
-  --sv2-scrollbar: rgb(255 255 255 / 12%);
-  --sv2-row-hover: rgb(255 255 255 / 5%);
-  --sv2-card-bg: rgb(255 255 255 / 4%);
-  --sv2-card-border: rgb(255 255 255 / 6%);
-  --sv2-grid-gap: rgb(255 255 255 / 6%);
-  --sv2-label-overlay-bg: rgb(0 0 0 / 45%);
-  --sv2-label-overlay-text: rgb(255 255 255 / 55%);
-  --sv2-placeholder-text: rgb(255 255 255 / 12%);
-  --sv2-menu-shadow: rgb(0 0 0 / 40%);
-  --sv2-toggle-active-bg: rgb(255 255 255 / 10%);
-  --sv2-toggle-active-border: rgb(255 255 255 / 18%);
-}
-
-/* ── Light theme ──────────────────────────────────────────────────────────── */
-
-.root[data-theme='light'] {
-  --sv2-panel-bg: rgb(248 249 253 / 76%);
-  --sv2-panel-bg-solid: rgb(238 240 246 / 95%);
-  --sv2-panel-bg-menu: rgb(252 253 255 / 97%);
-  --sv2-cell-bg: #f2f3f8;
-  --sv2-bg-hover: rgb(225 229 243 / 95%);
-  --sv2-text-strong: rgb(15 15 25 / 88%);
-  --sv2-text-primary: rgb(15 15 25 / 72%);
-  --sv2-text-label: rgb(15 15 25 / 55%);
-  --sv2-text-dim: rgb(15 15 25 / 42%);
-  --sv2-text-faint: rgb(15 15 25 / 32%);
-  --sv2-text-ghost: rgb(15 15 25 / 18%);
-  --sv2-text-btn: rgb(15 15 25 / 65%);
-  --sv2-border: rgb(0 0 0 / 8%);
-  --sv2-border-btn: rgb(0 0 0 / 12%);
-  --sv2-border-hover: rgb(0 0 0 / 24%);
-  --sv2-scrollbar: rgb(0 0 0 / 15%);
-  --sv2-row-hover: rgb(0 0 0 / 4%);
-  --sv2-card-bg: rgb(0 0 0 / 3%);
-  --sv2-card-border: rgb(0 0 0 / 7%);
-  --sv2-grid-gap: rgb(0 0 0 / 8%);
-  --sv2-label-overlay-bg: rgb(255 255 255 / 85%);
-  --sv2-label-overlay-text: rgb(0 0 0 / 65%);
-  --sv2-placeholder-text: rgb(0 0 0 / 18%);
-  --sv2-menu-shadow: rgb(0 0 0 / 15%);
-  --sv2-toggle-active-bg: rgb(0 0 0 / 8%);
-  --sv2-toggle-active-border: rgb(0 0 0 / 18%);
+  width: 100%;
+  height: 100%;
 }
 
 .canvasArea {
-  flex: 1;
   position: relative;
+  flex: 1;
   min-height: 0;
 }
 
@@ -77,7 +15,7 @@
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 20;
   display: flex;
   gap: 6px;
-  z-index: 20;
 }

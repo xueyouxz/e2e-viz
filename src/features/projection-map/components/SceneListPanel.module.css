@@ -125,8 +125,8 @@
 
 .itemContent {
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
   gap: 0.45rem;
   min-width: 0;
 }
