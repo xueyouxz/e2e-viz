@@ -7,23 +7,33 @@ import styles from './ProjectionMapPage.module.css'
 
 const SceneViewer = lazy(() => import('@/features/scene-viewer/components/SceneViewer'))
 
+// Cached across clicks; evicts only on page reload.
+const probeCache = new Map<string, boolean>()
+
 async function probeScene(sceneName: string): Promise<boolean> {
+  const cached = probeCache.get(sceneName)
+  if (cached !== undefined) return cached
   try {
     const res = await fetch(`/data/scenes/${sceneName}/message_index.json`)
-    if (!res.ok) return false
+    if (!res.ok) {
+      probeCache.set(sceneName, false)
+      return false
+    }
     // Vite dev server returns text/html (SPA fallback) for missing paths even
     // with status 200 — check Content-Type to distinguish real JSON from that.
-    return (res.headers.get('content-type') ?? '').includes('json')
+    const ok = (res.headers.get('content-type') ?? '').includes('json')
+    probeCache.set(sceneName, ok)
+    return ok
   } catch {
-    return false
+    return false // network errors are not cached; may succeed on retry
   }
 }
 
 export default function ProjectionMapPage() {
   const [selectedScenes, setSelectedScenes] = useState<ProjectionMapPoint[]>([])
-  const [activeScene, setActiveScene]     = useState<string | null>(null)
-  const [toast, setToast]                 = useState<string | null>(null)
-  const toastTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeScene, setActiveScene] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { points, splitCounts, loading, error } = useProjectionMapData()
 
@@ -42,8 +52,12 @@ export default function ProjectionMapPage() {
     setSelectedScenes(scenes)
   }, [])
 
-
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    },
+    []
+  )
 
   return (
     <main className={styles.page}>
@@ -59,10 +73,7 @@ export default function ProjectionMapPage() {
 
       <div className={styles.content}>
         {/* Left: selected scene list */}
-        <SceneListPanel
-          scenes={selectedScenes}
-          onClear={() => setSelectedScenes([])}
-        />
+        <SceneListPanel scenes={selectedScenes} onClear={() => setSelectedScenes([])} />
 
         {/* Right: projection map */}
         {loading ? (

@@ -63,6 +63,22 @@ Feature that renders a 2D D3 scatter plot of scenes. Supports panning, zooming, 
 
 The data backing ProjectionMap: a set of scenes each with a 2D projection coordinate, thumbnail, metadata, and split label.
 
+### Glyph
+
+A 44×44 SVG-unit bird's-eye thumbnail rendered per scene in the ProjectionMap, visible when zoom ≥ `LOD_GLYPH_MIN_K`. Implemented as a D3-managed `<g>` group containing a raster `<image>` (webp) and an SVG `<polyline>` for the **EgoTrajectory**. Selection state is expressed via a per-image SVG filter (edge detection + glow), not a rectangular border (see ADR-0004).
+
+### EgoTrajectory
+
+The driven path of the ego vehicle through a scene: ~40 `[x, y]` waypoints in the **first_ego frame**. Displayed as an orange (`#f97316`) polyline overlay on each Glyph. Source: `public/data/projection-map/ego_trajectories_slim.json`.
+
+### GlyphRange
+
+Per-scene bounding box (`range_center`, `range_size`) in the **first_ego frame** that defines what the Glyph image covers. Used to project EgoTrajectory global coordinates into Glyph pixel space. Source: `public/data/projection-map/glyph_ranges.json`.
+
+### first_ego frame
+
+A per-scene 2D coordinate system. Origin = ego vehicle position at sample 0; axes aligned to vehicle heading at that moment (rotation by `poses[0].yaw`). All VectorMap layer geometries and GlyphRange values are expressed in this frame. EgoTrajectory global coordinates are converted to this frame before rendering.
+
 ---
 
 ## Architecture Decisions
@@ -72,3 +88,4 @@ Non-obvious design choices are recorded in `docs/adr/`. Key entries:
 - [ADR-0001](docs/adr/0001-per-instance-scene-store.md) — Why SceneStore is a factory (not a singleton)
 - [ADR-0002](docs/adr/0002-worker-parse-main-thread-materialize.md) — Why Worker parses but main thread materializes images
 - [ADR-0003](docs/adr/0003-layer-renderer-split.md) — Why Layer and Renderer are separate components
+- [ADR-0004](docs/adr/0004-glyph-selection-svg-filter.md) — Why Glyph selection uses SVG edge-detection filter instead of a border

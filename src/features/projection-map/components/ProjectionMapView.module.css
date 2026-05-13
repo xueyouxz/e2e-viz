@@ -30,22 +30,35 @@
   pointer-events: none;
 }
 
-/* D3 sets pointer-events:all per element; CSS provides visual feedback */
-.glyphImage {
+/* Glyph <g> container */
+.glyphGroup {
   cursor: pointer;
-  transition: filter 120ms ease;
 }
 
-.glyphImage:hover {
+/* Raster bird's-eye image — sharp rendering + smooth hover scale + drop-shadow */
+.glyphImage {
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  transition:
+    filter 120ms ease,
+    transform 120ms ease;
+
+  /* transform-origin at center of the 44 px glyph */
+  transform-origin: 22px 22px;
+}
+
+/* Selection: apply SVG filter to the image element inside the selected group */
+.glyphGroupSelected .glyphImage {
+  filter: url('#glyph-selected-filter');
+}
+
+.glyphGroup:hover .glyphImage {
   filter: drop-shadow(0 3px 10px rgb(15 23 42 / 32%));
+  transform: scale(1.18);
 }
 
-.glyphImageSelected {
-  filter: drop-shadow(0 0 4px rgb(37 99 235 / 80%));
-}
-
-.glyphImageSelected:hover {
-  filter: drop-shadow(0 0 4px rgb(37 99 235 / 80%)) brightness(1.06);
+.glyphGroupSelected:hover .glyphImage {
+  filter: url('#glyph-selected-filter') drop-shadow(0 3px 10px rgb(15 23 42 / 32%));
 }
 
 /* Selected scene dot — uses --sel-r (~52 % of scatter-r) for constant screen size. */
@@ -62,15 +75,6 @@
   stroke: #2563eb;
   stroke-dasharray: 6 3;
   stroke-width: 1.5px;
-}
-
-/* Smooth convex hull bubble shown after lasso selection (data-space, inside zoom layer) */
-.selectionBubble {
-  pointer-events: none;
-  fill: rgb(37 99 235 / 7%);
-  stroke: rgb(37 99 235 / 40%);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
 }
 
 /* Overlay controls */
@@ -101,7 +105,9 @@
   background: rgb(255 255 255 / 80%);
   border: none;
   border-radius: 4px;
-  transition: color 120ms, background 120ms;
+  transition:
+    color 120ms,
+    background 120ms;
 }
 
 .lassoBtn {
@@ -143,7 +149,9 @@
   background: transparent;
   border: none;
   border-radius: 3px;
-  transition: color 120ms, background 120ms;
+  transition:
+    color 120ms,
+    background 120ms;
 }
 
 .datasetBtn {
