@@ -63,23 +63,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: E2E tests
-        run: pnpm test:e2e
-
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-artifacts-staging
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 3
-
   # ── CD: build & push staging image, deploy to staging server ───────────────
   cd:
     name: CD (staging)

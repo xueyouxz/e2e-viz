@@ -12,11 +12,6 @@ dist-ssr
 # Large copied runtime data.
 public/data/
 
-# Playwright output
-playwright-report/
-test-results/
-.playwright-cli/
-
 # Editor and OS files
 .DS_Store
 .idea

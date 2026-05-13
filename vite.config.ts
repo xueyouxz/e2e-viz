@@ -13,8 +13,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3001,
-    open: false
+    port: 3001
   },
   build: {
     rollupOptions: {
