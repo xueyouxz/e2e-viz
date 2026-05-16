@@ -147,6 +147,7 @@
 .splitBadge[data-split='train'] {
   background: #689cc2;
 }
+
 .splitBadge[data-split='val'] {
   background: #a94c4c;
 }
@@ -164,12 +165,15 @@
 .locationBadge[data-location*='boston'] {
   background: #67897e;
 }
+
 .locationBadge[data-location*='hollandvillage'] {
   background: #bdacdb;
 }
+
 .locationBadge[data-location*='onenorth'] {
   background: #7b99a9;
 }
+
 .locationBadge[data-location*='queenstown'] {
   background: #e3acc5;
 }
@@ -225,18 +229,23 @@
 .barSegment[data-group='vehicle'] {
   background: #2f7ed8;
 }
+
 .barSegment[data-group='pedestrian'] {
   background: #d95f59;
 }
+
 .barSegment[data-group='movable'] {
   background: #33a36f;
 }
+
 .barSegment[data-group='static'] {
   background: #8f6bc8;
 }
+
 .barSegment[data-group='animal'] {
   background: #c98922;
 }
+
 .barSegment[data-group='other'] {
   background: #7a8597;
 }
