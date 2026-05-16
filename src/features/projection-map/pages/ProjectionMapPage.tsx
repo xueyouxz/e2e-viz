@@ -35,7 +35,7 @@ export default function ProjectionMapPage() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { points, splitCounts, loading, error } = useProjectionMapData()
+  const { points, loading, error } = useProjectionMapData()
 
   const handleGlyphClick = useCallback(async (sceneName: string) => {
     const exists = await probeScene(sceneName)
@@ -63,17 +63,19 @@ export default function ProjectionMapPage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <span className={styles.headerTitle}>自动驾驶场景可视分析</span>
-        {!loading && (
-          <div className={styles.headerMeta}>
-            <span>{`Train ${splitCounts.train}`}</span>
-            <span>{`Validation ${splitCounts.val}`}</span>
-          </div>
-        )}
       </header>
 
       <div className={styles.content}>
-        {/* Left: selected scene list */}
-        <SceneListPanel scenes={selectedScenes} onClear={() => setSelectedScenes([])} />
+        {/* Left: selected scene list — slides in when scenes are selected */}
+        <div
+          className={`${styles.panelSlide} ${selectedScenes.length > 0 ? styles.panelSlideOpen : ''}`}
+        >
+          <SceneListPanel
+            scenes={selectedScenes}
+            visible={selectedScenes.length > 0}
+            onClear={() => setSelectedScenes([])}
+          />
+        </div>
 
         {/* Right: projection map */}
         {loading ? (

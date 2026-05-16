@@ -1,5 +1,14 @@
-import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import * as d3 from 'd3'
+import { CategoryBarChart, type BarDatum } from '@/shared/components/charts/CategoryBarChart'
 import styles from './ProjectionMapView.module.css'
 import type { ProjectionMapPoint, SplitName } from '../types/vectorMap.types'
 
@@ -7,7 +16,7 @@ type ProjectionMapViewProps = {
   points: ProjectionMapPoint[]
   selectedScenes: ProjectionMapPoint[]
   onGlyphClick?: (sceneName: string) => void
-  onSelectionChange: (scenes: ProjectionMapPoint[]) => void
+  onSelectionChange?: (scenes: ProjectionMapPoint[]) => void
 }
 
 type Viewport = {
@@ -159,9 +168,11 @@ export function ProjectionMapView({
   onGlyphClick,
   onSelectionChange
 }: ProjectionMapViewProps) {
-  const [showTrain, setShowTrain] = useState(true)
-  const [showVal, setShowVal] = useState(true)
+  const [activeIds, setActiveIds] = useState<string[]>(['train', 'val'])
   const [lassoActive, setLassoActive] = useState(false)
+
+  const showTrain = activeIds.includes('train')
+  const showVal = activeIds.includes('val')
 
   const svgRef = useRef<SVGSVGElement | null>(null)
   const scatterGroupRef = useRef<SVGGElement | null>(null)
@@ -177,11 +188,13 @@ export function ProjectionMapView({
   const onSelectionChangeRef = useRef(onSelectionChange)
   const scalesRef = useRef<ScalePair | null>(null)
   const pointsRef = useRef(points)
+  const visiblePointsRef = useRef<ProjectionMapPoint[]>([])
   useLayoutEffect(() => {
     lassoActiveRef.current = lassoActive
     onGlyphClickRef.current = onGlyphClick
     onSelectionChangeRef.current = onSelectionChange
     pointsRef.current = points
+    visiblePointsRef.current = visibleGlyphPoints
   })
 
   // Lasso drawing state — managed imperatively to avoid re-renders during draw.
@@ -318,6 +331,67 @@ export function ProjectionMapView({
     () => new Set(selectedScenes.map(s => s.scene_name)),
     [selectedScenes]
   )
+
+  // ─── Split bar chart data ─────────────────────────────────────────────────────
+
+  // Single pass over selectedScenes to count both splits at once.
+  const splitSelectedCounts = useMemo(() => {
+    const counts = { train: 0, val: 0 }
+    for (const s of selectedScenes) {
+      if (s.split === 'train') counts.train++
+      else if (s.split === 'val') counts.val++
+    }
+    return counts
+  }, [selectedScenes])
+
+  // When a split is inactive its selected count is zeroed so the bar immediately
+  // resets to default state and the pill reverts to showing the total.
+  const chartBars = useMemo<BarDatum[]>(() => {
+    const trainActive = activeIds.includes('train')
+    const valActive = activeIds.includes('val')
+    return [
+      {
+        id: 'train',
+        label: 'Train',
+        color: SPLIT_COLORS.train,
+        total: trainPoints.length,
+        selected: trainActive ? splitSelectedCounts.train : 0
+      },
+      {
+        id: 'val',
+        label: 'Val',
+        color: SPLIT_COLORS.val,
+        total: valPoints.length,
+        selected: valActive ? splitSelectedCounts.val : 0
+      }
+    ]
+  }, [trainPoints.length, valPoints.length, splitSelectedCounts, activeIds])
+
+  // At least one split must remain active — guard prevents an empty map state.
+  const handleBarClick = useCallback((id: string) => {
+    startTransition(() => {
+      setActiveIds(prev => {
+        if (prev.includes(id) && prev.length === 1) return prev
+        return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      })
+    })
+  }, [])
+
+  // When a split is toggled back on while a lasso polygon exists, re-evaluate
+  // which of the newly visible points fall inside the polygon so that the bar
+  // chart immediately reflects the correct selected proportion.
+  useEffect(() => {
+    const dp = lassoDataPolyRef.current
+    if (dp.length === 0) return
+    const t = transformRef.current
+    const sc = scalesRef.current
+    if (!sc) return
+    const screenPoly = dp.map(([dx, dy]): Vec2 => [sc.x(dx) * t.k + t.x, sc.y(dy) * t.k + t.y])
+    const selected = visibleGlyphPoints.filter(p =>
+      pointInPolygon(sc.x(p.tsne_comp1) * t.k + t.x, sc.y(p.tsne_comp2) * t.k + t.y, screenPoly)
+    )
+    onSelectionChangeRef.current?.(selected)
+  }, [visibleGlyphPoints])
 
   // ─── D3 glyph join ───────────────────────────────────────────────────────────
 
@@ -508,12 +582,12 @@ export function ProjectionMapView({
       return
     }
 
-    const selected = pointsRef.current.filter(p => {
+    const selected = visiblePointsRef.current.filter(p => {
       const sx = sc.x(p.tsne_comp1) * t.k + t.x
       const sy = sc.y(p.tsne_comp2) * t.k + t.y
       return pointInPolygon(sx, sy, poly)
     })
-    onSelectionChangeRef.current(selected)
+    onSelectionChangeRef.current?.(selected)
 
     if (selected.length > 0) {
       // Convert screen-space polygon → data space so it tracks zoom/pan.
@@ -538,31 +612,25 @@ export function ProjectionMapView({
 
   return (
     <section className={styles.panel}>
-      <div className={styles.controlsOverlay}>
-        <div className={styles.datasetToggles}>
+      {/* Top-left: lasso tool — pill style matching scene-viewer toolbar */}
+      <div className={styles.lassoOverlay}>
+        <div className={styles.toolPill}>
           <button
             type='button'
-            className={showVal ? styles.datasetActive : styles.datasetBtn}
-            onClick={() => startTransition(() => setShowVal(v => !v))}
+            className={`${styles.toolBtn} ${lassoActive ? styles.toolBtnActive : ''}`}
+            onClick={() => setLassoActive(v => !v)}
+            title='Lasso select'
           >
-            val
-          </button>
-          <button
-            type='button'
-            className={showTrain ? styles.datasetActive : styles.datasetBtn}
-            onClick={() => startTransition(() => setShowTrain(v => !v))}
-          >
-            train
+            <LassoIcon />
           </button>
         </div>
-        <button
-          type='button'
-          className={lassoActive ? styles.lassoActive : styles.lassoBtn}
-          onClick={() => setLassoActive(v => !v)}
-          title='Lasso toggle'
-        >
-          <LassoIcon />
-        </button>
+      </div>
+
+      {/* Top-right: split distribution bar chart */}
+      <div className={styles.controlsOverlay}>
+        <div className={styles.toolPill}>
+          <CategoryBarChart bars={chartBars} activeIds={activeIds} onBarClick={handleBarClick} />
+        </div>
       </div>
 
       <svg

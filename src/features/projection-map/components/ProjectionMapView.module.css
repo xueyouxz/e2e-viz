@@ -77,15 +77,13 @@
   stroke-width: 1.5px;
 }
 
-/* Overlay controls */
+/* ── Overlay controls (top-right: split bar chart) ───────────────────────── */
+
 .controlsOverlay {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 10;
-  display: flex;
-  gap: 8px;
-  align-items: center;
   pointer-events: none;
 }
 
@@ -93,77 +91,64 @@
   pointer-events: auto;
 }
 
-.lassoBtn,
-.lassoActive {
+/* ── Lasso overlay (top-left) ────────────────────────────────────────────── */
+
+.lassoOverlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.lassoOverlay > * {
+  pointer-events: auto;
+}
+
+/* ── Tool pill — matches scene-viewer PanelToggleBar style ──────────────── */
+
+.toolPill {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--app-panel-bg-solid);
+  border: 1px solid var(--app-border-btn);
+  border-radius: 10px;
+}
+
+.toolBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  padding: 5px 8px;
+  color: var(--app-text-dim);
   cursor: pointer;
-  background: rgb(255 255 255 / 80%);
+  background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: 7px;
   transition:
-    color 120ms,
-    background 120ms;
+    color 150ms ease,
+    background 150ms ease;
 }
 
-.lassoBtn {
-  color: #647084;
+.toolBtn:hover {
+  color: var(--app-text-primary);
+  background: var(--app-row-hover);
 }
 
-.lassoBtn:hover {
-  color: #2563eb;
-  background: rgb(255 255 255 / 95%);
+/* Active (lasso on) — accent colour, clearly distinct from hover */
+.toolBtnActive {
+  color: var(--color-accent);
+  background: rgb(37 99 235 / 12%);
 }
 
-.lassoActive {
-  color: #2563eb;
-  background: #e0e7ff;
+.toolBtnActive:hover {
+  color: var(--color-accent);
+  background: rgb(37 99 235 / 20%);
 }
 
 .lassoIcon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   fill: currentcolor;
-}
-
-.datasetToggles {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  background: rgb(255 255 255 / 80%);
-  border: none;
-  border-radius: 4px;
-}
-
-.datasetBtn,
-.datasetActive {
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  border-radius: 3px;
-  transition:
-    color 120ms,
-    background 120ms;
-}
-
-.datasetBtn {
-  color: #94a3b8;
-}
-
-.datasetBtn:hover {
-  color: #475569;
-  background: #f1f5f9;
-}
-
-.datasetActive {
-  color: #0f172a;
-  background: #e2e8f0;
 }

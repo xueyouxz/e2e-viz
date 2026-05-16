@@ -25,17 +25,17 @@ const DATA_DIR       = path.join(REPO_ROOT, 'public/data')
 const OUTPUT_DIR     = path.join(DATA_DIR, 'glyphs')
 
 const GLYPH_LOGICAL  = 44           // CSS logical pixels
-const GLYPH_DPR      = 2            // device pixel ratio
+const GLYPH_DPR      = 6            // device pixel ratio
 const GLYPH_PHYSICAL = GLYPH_LOGICAL * GLYPH_DPR   // 88px on disk
-const MAP_PADDING    = 4
+const MAP_PADDING    = 3
 const DEFAULT_CONCURRENCY = 40
 
 // Colours from ProjectionMapView.module.css
-const C_DRIVABLE_FILL  = 'rgba(116,132,151,.46)'
-const C_PED_FILL       = 'rgba(232,151,45,.36)'
+const C_DRIVABLE_FILL  = 'rgba(116,132,151,.16)'
+const C_PED_FILL       = 'rgba(232,151,45,.56)'
 const C_PED_STROKE     = 'rgba(169,94,20,.38)'
-const C_DIVIDER_STROKE = 'rgba(39,122,172,.68)'
-
+const C_DIVIDER_STROKE = 'rgba(39,122,172,.58)'
+ 
 // ── Geometry (mirrors buildMapGeometry in TypeScript) ────────────────────────
 
 function getBounds(pts) {

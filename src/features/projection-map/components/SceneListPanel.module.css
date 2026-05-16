@@ -5,8 +5,14 @@
   width: clamp(320px, 26vw, 400px);
   height: 100%;
   overflow: hidden;
-  background: #fafbfd;
-  border-right: 1px solid #e4e8f0;
+  background: var(--app-surface-raised);
+  border-right: 1px solid var(--app-page-border);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateX(-100%);
+}
+
+.panel[data-visible='true'] {
+  transform: translateX(0);
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -18,14 +24,14 @@
   align-items: center;
   height: 2.5rem;
   padding: 0 0.75rem;
-  border-bottom: 1px solid #e4e8f0;
+  border-bottom: 1px solid var(--app-page-border);
 }
 
 .title {
   flex: 1;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #18243a;
+  color: var(--app-text);
   letter-spacing: 0.01em;
 }
 
@@ -38,19 +44,21 @@
   font-size: 0.7rem;
   font-weight: 700;
   color: #fff;
-  background: #2563eb;
+  background: var(--color-accent);
   border-radius: 10px;
 }
 
 .clearBtn {
   padding: 0.2rem 0.5rem;
   font-size: 0.75rem;
-  color: #6a7690;
+  color: var(--app-text-muted);
   cursor: pointer;
   background: transparent;
-  border: 1px solid #d2d8e6;
+  border: 1px solid var(--app-border-btn);
   border-radius: 4px;
-  transition: color 100ms, border-color 100ms;
+  transition:
+    color 100ms,
+    border-color 100ms;
 }
 
 .clearBtn:disabled {
@@ -63,34 +71,11 @@
   border-color: #c0392b;
 }
 
-/* ── Empty state ────────────────────────────────────────────────────────── */
-
-.empty {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.25rem;
-  text-align: center;
-}
-
-
-.empty p {
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: #9ca5b8;
-}
-
 /* ── Scene list ──────────────────────────────────────────────────────────── */
 
 .list {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 0.625rem;
-  padding: 0.625rem;
+  padding: 0 0.625rem;
   margin: 0;
   overflow-y: auto;
   list-style: none;
@@ -101,17 +86,17 @@
   flex-direction: row;
   gap: 0.625rem;
   padding: 0.425rem;
-  content-visibility: auto;
-  contain-intrinsic-size: 100px;
-  background: #fff;
-  border: 1px solid #e8edf5;
+  background: var(--app-surface);
+  border: 1px solid var(--app-card-border);
   border-radius: 7px;
-  transition: border-color 120ms, box-shadow 120ms;
+  transition:
+    border-color 120ms,
+    box-shadow 120ms;
 }
 
 .item:hover {
-  border-color: #c4cfe8;
-  box-shadow: 0 2px 8px rgb(15 23 42 / 6%);
+  border-color: var(--app-border-hover);
+  box-shadow: var(--app-card-hover-shadow);
 }
 
 .thumb {
@@ -119,7 +104,7 @@
   width: 92px;
   height: 92px;
   object-fit: cover;
-  background: #f0f3f8;
+  background: var(--app-cell-bg);
   border-radius: 2px;
 }
 
@@ -144,7 +129,7 @@
   overflow: hidden;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #18243a;
+  color: var(--app-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -152,32 +137,42 @@
 .splitBadge {
   flex-shrink: 0;
   padding: 2px 6px;
-  font-size: 0.45rem;
+  font-size: 0.6rem;
   font-weight: 600;
   color: #fff;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
   border-radius: 6px;
 }
 
-.splitBadge[data-split='train'] { background: #689cc2; }
-.splitBadge[data-split='val']   { background: #a94c4c; }
+.splitBadge[data-split='train'] {
+  background: #689cc2;
+}
+.splitBadge[data-split='val'] {
+  background: #a94c4c;
+}
 
 .locationBadge {
   flex-shrink: 0;
   padding: 2px 6px;
-  font-size: 0.45rem;
+  font-size: 0.6rem;
   font-weight: 600;
   color: #fff;
   text-transform: capitalize;
   border-radius: 6px;
 }
 
-.locationBadge[data-location*='boston'] { background: #67897e; }
-.locationBadge[data-location*='singapore'] { background: #ccb9a4; }
-.locationBadge[data-location*='hollandvillage'] { background: #bdacdb; }
-.locationBadge[data-location*='onenorth'] { background: #7b99a9; }
-.locationBadge[data-location*='queenstown'] { background: #e3acc5; }
+.locationBadge[data-location*='boston'] {
+  background: #67897e;
+}
+.locationBadge[data-location*='hollandvillage'] {
+  background: #bdacdb;
+}
+.locationBadge[data-location*='onenorth'] {
+  background: #7b99a9;
+}
+.locationBadge[data-location*='queenstown'] {
+  background: #e3acc5;
+}
 
 .description {
   display: -webkit-box;
@@ -185,34 +180,40 @@
   overflow: hidden;
   font-size: 0.72rem;
   line-height: 1.35;
-  color: #5d6a7d;
+  color: var(--app-text-muted);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
+/* ── Object chart ────────────────────────────────────────────────────────── */
+
 .objectChart {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
-.chartHeader {
+.barRow {
   display: flex;
   gap: 0.5rem;
-  justify-content: space-between;
+  align-items: center;
+}
+
+.barCount {
+  flex-shrink: 0;
   font-size: 0.65rem;
-  font-weight: 700;
-  color: #6a7690;
-  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  white-space: nowrap;
 }
 
 .stackedBar {
   display: flex;
-  width: 100%;
-  height: 0.425rem;
+  flex: 1;
+  height: 0.5rem;
   overflow: hidden;
-  background: #eef2f7;
+  background: var(--app-border);
   border-radius: 3px;
 }
 
@@ -221,40 +222,28 @@
   min-width: 2px;
 }
 
-.barSegment[data-group='vehicle'],
-.groupDot[data-group='vehicle'] {
+.barSegment[data-group='vehicle'] {
   background: #2f7ed8;
 }
-
-.barSegment[data-group='pedestrian'],
-.groupDot[data-group='pedestrian'] {
+.barSegment[data-group='pedestrian'] {
   background: #d95f59;
 }
-
-.barSegment[data-group='movable'],
-.groupDot[data-group='movable'] {
+.barSegment[data-group='movable'] {
   background: #33a36f;
 }
-
-.barSegment[data-group='static'],
-.groupDot[data-group='static'] {
+.barSegment[data-group='static'] {
   background: #8f6bc8;
 }
-
-.barSegment[data-group='animal'],
-.groupDot[data-group='animal'] {
+.barSegment[data-group='animal'] {
   background: #c98922;
 }
-
-.barSegment[data-group='other'],
-.groupDot[data-group='other'] {
+.barSegment[data-group='other'] {
   background: #7a8597;
 }
 
 .noObjects {
-  padding: 0.45rem 0;
   font-size: 0.7rem;
-  color: #8a94a6;
+  color: var(--app-text-dim);
 }
 
 @media (width <= 720px) {
