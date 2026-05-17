@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 pnpm dev          # dev server at http://localhost:3001
 pnpm build        # tsc -b && vite build
+pnpm typecheck    # tsc --noEmit (type check without emit)
 pnpm lint         # eslint
 pnpm lint:fix     # eslint --fix
 pnpm lint:style   # stylelint CSS
@@ -14,6 +15,8 @@ pnpm format       # prettier
 pnpm test         # vitest run (single pass)
 pnpm test:watch   # vitest (watch mode)
 pnpm test:coverage
+pnpm size         # bundle size check (requires prior pnpm build)
+pnpm sync:data    # interactive data sync to remote server (public/data/ → /srv/e2e-viz/data/)
 ```
 
 Run a single test file:
@@ -35,7 +38,7 @@ Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → Sc
 
 ### State
 
-- **AppStore** (`src/app/appStore.ts`) — module-level Zustand singleton. Owns `theme` (`'dark'|'light'`), synced to `localStorage` and `document.documentElement[data-theme]`.
+- **ThemeProvider** (`src/app/themeContext.tsx`) — React Context at the app root. Owns `theme` (`'dark'|'light'`), synced to `localStorage` and `document.documentElement[data-theme]`. Consumed via `useTheme()`. Not Zustand — see ADR-0005.
 - **SceneStore** (`src/features/scene-viewer/store/sceneStore.ts`) — created via `createSceneStore()` factory, not a singleton. Each `<SceneViewer>` mount gets its own store instance passed through `SceneCtx`. Never refactor to a singleton (ADR-0001).
 
 ### Scene data pipeline
@@ -65,6 +68,29 @@ CSS: `--app-*` custom properties in `src/styles/variables.css` per `[data-theme]
 - Do not add store access inside Renderers.
 - Do not replace `SceneCtx` with a module-level import of SceneStore.
 - The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `workerMessages.ts`, `MessageParser.ts`, and `SceneDataManager.materializeFrame`.
+
+## Type safety conventions
+
+The project runs `strict: true` with `noUnusedLocals` and `noUnusedParameters`. CI enforces `pnpm typecheck` before the build step.
+
+**Prohibited:**
+
+- `@ts-ignore` and `@ts-nocheck` — never use; they silently suppress real errors.
+- `as any` — use `unknown` + type narrowing, or proper generic bounds.
+- `// eslint-disable` on type-related rules (e.g. `@typescript-eslint/no-explicit-any`) — fix the root type instead.
+
+**Permitted with a mandatory explanation comment:**
+
+- `@ts-expect-error` — only when suppressing a known upstream library bug. The comment must name the library version and link or describe the issue.
+
+**Pattern for third-party ref types (drei / r3f):**
+Use `React.ElementRef<typeof Component>` instead of importing from indirect packages:
+
+```ts
+import type { ElementRef } from 'react'
+import { OrbitControls } from '@react-three/drei'
+const ref = useRef<ElementRef<typeof OrbitControls> | null>(null)
+```
 
 ## Tooling
 

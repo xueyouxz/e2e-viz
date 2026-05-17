@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import type { ElementRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -34,8 +35,7 @@ function wxyzToThreeQuat(wxyz: [number, number, number, number]): THREE.Quaterni
 
 export function CameraController() {
   const store = useSceneStoreApi()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef = useRef<any>(null)
+  const controlsRef = useRef<ElementRef<typeof OrbitControls> | null>(null)
   const prevModeRef = useRef<CameraMode>('follow')
   const snapRef = useRef(true)
   const bevInitRef = useRef(false)

@@ -58,11 +58,17 @@ jobs:
       - name: Style lint
         run: pnpm lint:style
 
+      - name: Type check
+        run: pnpm typecheck
+
       - name: Unit tests
         run: pnpm test
 
       - name: Build
         run: pnpm build
+
+      - name: Bundle size check
+        run: pnpm size
 
   # ── CD: build & push Docker image to GHCR (main branch only) ───────────────
   cd:
@@ -159,7 +165,7 @@ jobs:
             for attempt in $(seq 1 30); do
               if healthcheck; then
                 # Remove old images for this project only (keep current SHA and latest).
-                docker images "ghcr.io/xueyouxz/e2e-viz" \
+                docker images "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" \
                   --format "{{.ID}}\t{{.Tag}}" \
                   | grep -v -E "(sha-${{ github.sha }}|latest)" \
                   | awk '{print $1}' | sort -u \
