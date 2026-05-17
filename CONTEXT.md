@@ -31,13 +31,9 @@ A named channel of data that exists across all Frames in a Scene. Each Stream ha
 
 The data for one Stream at one Frame. Typed per `StreamType` (e.g. `CuboidPayload`, `PointPayload`). Stored as typed arrays for memory efficiency.
 
-### Layer
-
-A React Three Fiber component that renders one Stream's `StreamPayload` in the 3D canvas. Each `StreamType` has a corresponding Layer (e.g. `CuboidLayer`, `PointLayer`). Layers are registered in `layerRegistry`.
-
 ### Renderer
 
-A thin R3F component inside a Layer that holds the Three.js geometry and material. Layers own data selection; Renderers own geometry.
+A React Three Fiber component that renders one Stream's `StreamPayload` directly in the 3D canvas. Reads the current payload from SceneStore (zero-subscription via `useSceneStoreApi()` + `useFrame`, or `useMemo` for static streams), manages pre-allocated Three.js geometry and material in-place (`DynamicDrawUsage` typed arrays), and owns the full rendering lifecycle. One Renderer per `StreamType`: `CuboidRenderer`, `PointRenderer`, `PathRenderer`, `PolygonRenderer`, `ImageRenderer`. All Renderers are registered in `layerRegistry`. The `pose` StreamType is intentionally omitted from the registry — its visual representation is `EgoVehicle`, which reads `state.egoPose` directly and lives in `components/`.
 
 ### SceneStore
 

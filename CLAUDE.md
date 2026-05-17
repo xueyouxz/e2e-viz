@@ -45,15 +45,14 @@ Scene bundles are `.glb` files following the NUSVIZ protocol (see `docs/NUSVIZ.m
 1. **Web Worker** (`data/workers/messageParse.worker.ts` → `data/MessageParser.ts`) — parses the GLB binary, resolves typed array accessors, returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
 2. **Main thread** (`data/SceneDataManager.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles revocation on `destroy()` (ADR-0002).
 
-### Rendering: Layer / Renderer split
+### Rendering: Renderer + Registry
 
-Six `StreamType` values from the NUSVIZ protocol (`point`, `polyline`, `polygon`, `cuboid`, `image`, `pose`):
+Five `StreamType` values from the NUSVIZ protocol are rendered via the registry (`point`, `polyline`, `polygon`, `cuboid`, `image`). The `pose` type is handled separately by `EgoVehicle` in `components/`.
 
-- **Layer** (`layer/*Layer.tsx`) — reads `StreamPayload` from SceneStore, owns React lifecycle.
-- **Renderer** (`renderers/*Renderer.tsx`) — receives typed arrays as props, manages Three.js geometry/material. No store access; no knowledge of frame index.
-- **Registry** (`registry/layerRegistry.ts`) — maps `StreamType` → Layer. `FrameSynchronizer` iterates it; never hardcode type checks there (ADR-0003).
+- **Renderer** (`renderers/*Renderer.tsx`) — the complete rendering pipeline for one `StreamType`. Reads `StreamPayload` directly from SceneStore (zero-subscription `useSceneStoreApi()` + `useFrame` for per-frame streams; `useMemo` for static geometry). Owns pre-allocated `DynamicDrawUsage` typed arrays mutated in-place; manages Three.js geometry, material, and disposal.
+- **Registry** (`registry/layerRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
 
-Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Layer + Renderer + one registry entry.
+Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Renderer + one registry entry.
 
 ### Theming
 

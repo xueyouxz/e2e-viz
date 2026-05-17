@@ -1,6 +1,6 @@
 # ADR-0003: Layer / Renderer two-layer split for scene rendering
 
-**Status:** Accepted
+**Status:** Amended (see below)
 
 ## Context
 
@@ -40,7 +40,34 @@ The NUSVIZ `polyline` and `polygon` types share the same vertex/offsets payload 
 
 **Rules out:**
 
-- Do not add store access inside Renderers — they must remain pure typed-array → Three.js components
 - Do not bypass the registry by hardcoding `StreamType` checks in `FrameSynchronizer`
-- Do not merge Layer and Renderer back into one component — the seam exists so Renderers can be swapped (e.g. instanced vs non-instanced cuboids) without touching React lifecycle code
 - The six `StreamType` values come from the NUSVIZ protocol spec — do not invent new types outside the spec without updating both the protocol doc and the registry
+
+---
+
+## Amendment — Layer / Renderer merged (May 2026)
+
+**The Layer abstraction has been removed.** All five Layer components (`PointLayer`, `PathLayer`, `PolygonLayer`, `ImageLayer`, and the unused `CuboidLayer`) were merged into their corresponding Renderers.
+
+### Why the original split was revoked
+
+The original rationale ("Renderers are testable in isolation with raw typed arrays") relied on Renderers receiving typed arrays as props. In practice:
+
+1. **PathLayer and PolygonLayer** converted `StreamPayload` typed arrays into intermediate JS-object arrays (`PathLayerDatum[]`, `PolygonLayerDatum[]`) and passed them as props. These intermediate allocations happened every frame, causing measurable GC pressure on high-frequency polyline streams.
+2. **All Layers** created new Three.js geometry objects on every payload change — there was no pre-allocation. The split added indirection without adding testability in practice (no Renderer-only tests existed or were planned).
+3. **CuboidLayer** was dead code — `CuboidRenderer` was always used directly and never delegated to a separate Layer component.
+
+### New architecture
+
+Each Renderer is now the **complete rendering pipeline** for its StreamType:
+
+- Reads `StreamPayload` directly from SceneStore (`useSceneStoreApi()` + `useFrame` for per-frame streams; `useMemo` for static streams)
+- Owns pre-allocated `DynamicDrawUsage` typed arrays; mutates them in-place per frame
+- Manages geometry, material, and disposal lifecycle
+- Is registered in `layerRegistry` as before — registry contract is unchanged
+
+### Updated constraints
+
+- Do not add intermediate typed-array → JS-object → typed-array conversion steps in Renderers; write directly into pre-allocated buffers
+- Do not add store access outside of the `useFrame` callback or mount-time `useMemo` in Renderers — no reactive `useSceneStore(selector)` subscriptions inside Renderers
+- `CameraOverlayCanvas` in `layer/` is **not** a Renderer in this sense; it is a 2D canvas component used by `CameraPanel` and is not registered in `layerRegistry`
