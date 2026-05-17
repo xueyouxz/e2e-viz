@@ -1,8 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
-import { ProjectionMapView } from '../components/ProjectionMapView'
-import { SceneListPanel } from '../components/SceneListPanel'
-import { useProjectionMapData } from '../hooks/useProjectionMapData'
-import type { ProjectionMapPoint } from '../types/vectorMap.types'
+import { ProjectionMapView } from '@/components/projection-map/ProjectionMapView'
+import { SceneListPanel } from '@/components/scene-list/SceneListPanel'
+import { useProjectionMapData } from '@/hooks/useProjectionMapData'
+import type { ProjectionMapPoint } from '@/types/scene'
 import styles from './ProjectionMapPage.module.css'
 
 const SceneViewer = lazy(() => import('@/features/scene-viewer/components/SceneViewer'))

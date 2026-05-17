@@ -1,7 +1,8 @@
 import { type CSSProperties, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import styles from './SceneListPanel.module.css'
-import type { ProjectionMapPoint, SceneObjectSummary } from '../types/vectorMap.types'
+import type { ProjectionMapPoint } from '@/types/scene'
+import { useScenesMeta, type SceneObjectSummary } from '@/hooks/useScenesMeta'
 
 const GLYPH_BASE = '/data/glyphs/'
 
@@ -68,6 +69,8 @@ type Props = {
 
 export function SceneListPanel({ scenes, visible, onClear }: Props) {
   const listRef = useRef<HTMLUListElement>(null)
+  // Triggers fetch on first scene selection; returns cached Map on subsequent renders.
+  const meta = useScenesMeta(scenes.length > 0)
 
   const virtualizer = useVirtualizer({
     count: scenes.length,
@@ -93,7 +96,7 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map(virtualItem => {
             const scene = scenes[virtualItem.index]
-            const summary = scene.summary
+            const summary = meta?.get(scene.scene_name)
             const objectGroups = buildObjectGroups(summary)
             const objectTotal =
               summary?.object_total_unique ??
@@ -120,6 +123,9 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
                   width={92}
                   height={92}
                   loading='lazy'
+                  onError={e => {
+                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                  }}
                 />
                 <div className={styles.itemContent}>
                   <div className={styles.nameRow}>

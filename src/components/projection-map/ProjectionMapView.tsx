@@ -8,9 +8,9 @@ import {
   useState
 } from 'react'
 import * as d3 from 'd3'
-import { CategoryBarChart, type BarDatum } from '@/shared/components/charts/CategoryBarChart'
+import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
 import styles from './ProjectionMapView.module.css'
-import type { ProjectionMapPoint, SplitName } from '../types/vectorMap.types'
+import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
 type ProjectionMapViewProps = {
   points: ProjectionMapPoint[]
@@ -434,6 +434,10 @@ export function ProjectionMapView({
       .attr('width', MAP_GLYPH_SIZE)
       .attr('height', MAP_GLYPH_SIZE)
       .attr('class', styles.glyphImage)
+      .on('error', function () {
+        // Glyph file absent — hide the whole <g> so the grid cell stays empty.
+        d3.select(this.parentNode as SVGGElement).attr('display', 'none')
+      })
 
     // No transition on update — the zoom handler repositions every frame
     // imperatively; mixing D3 transitions with direct attr() writes causes
