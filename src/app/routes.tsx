@@ -1,34 +1,38 @@
 import { Suspense, lazy } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
-import { RouteErrorBoundary, RouteLoading } from './RouteFallbacks'
+import { Navigate, createBrowserRouter } from 'react-router-dom'
+import { RouteErrorBoundary, RouteLoading, RouteNotFound } from './RouteFallbacks'
 
-const ProjectionMapPage = lazy(() => import('@/features/projection-map/pages/ProjectionMapPage'))
+const ProjectionMapPage = lazy(() => import('@/pages/ProjectionMapPage'))
 const SceneViewerRoute = lazy(() => import('./SceneViewerRoute'))
-
-const projectionMapRouteElement = (
-  <Suspense fallback={<RouteLoading />}>
-    <ProjectionMapPage />
-  </Suspense>
-)
 
 export const router = createBrowserRouter([
   {
-    path: '/',
     errorElement: <RouteErrorBoundary />,
-    element: projectionMapRouteElement
-  },
-  {
-    path: '/projection-map',
-    errorElement: <RouteErrorBoundary />,
-    element: projectionMapRouteElement
-  },
-  {
-    path: '/scenes/:sceneName',
-    errorElement: <RouteErrorBoundary />,
-    element: (
-      <Suspense fallback={<RouteLoading />}>
-        <SceneViewerRoute />
-      </Suspense>
-    )
+    children: [
+      {
+        path: '/',
+        element: <Navigate replace to='/projection-map' />
+      },
+      {
+        path: '/projection-map',
+        element: (
+          <Suspense fallback={<RouteLoading />}>
+            <ProjectionMapPage />
+          </Suspense>
+        )
+      },
+      {
+        path: '/scenes/:sceneName',
+        element: (
+          <Suspense fallback={<RouteLoading />}>
+            <SceneViewerRoute />
+          </Suspense>
+        )
+      },
+      {
+        path: '*',
+        element: <RouteNotFound />
+      }
+    ]
   }
 ])

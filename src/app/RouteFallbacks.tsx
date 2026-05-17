@@ -17,6 +17,17 @@ export function RouteLoading({ label = 'Loading…', variant = 'page' }: RouteLo
   )
 }
 
+export function RouteNotFound() {
+  return (
+    <div className={styles.routeState}>
+      <div className={styles.statePanel}>
+        <div className={styles.title}>Page not found</div>
+        <div className={styles.message}>This URL doesn't match any known view.</div>
+      </div>
+    </div>
+  )
+}
+
 export function RouteErrorBoundary() {
   const error = useRouteError()
   const message = isRouteErrorResponse(error)
