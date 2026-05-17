@@ -11,13 +11,22 @@ const BOX_FACE_INDICES: FaceIndices[] = [
   [0, 4, 5, 1],
   [2, 6, 7, 3],
   [3, 7, 4, 0],
-  [1, 5, 6, 2],
+  [1, 5, 6, 2]
 ]
 
 const BOX_EDGE_PAIRS: EdgePair[] = [
-  [0, 1], [1, 2], [2, 3], [3, 0],
-  [4, 5], [5, 6], [6, 7], [7, 4],
-  [0, 4], [1, 5], [2, 6], [3, 7],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 0],
+  [4, 5],
+  [5, 6],
+  [6, 7],
+  [7, 4],
+  [0, 4],
+  [1, 5],
+  [2, 6],
+  [3, 7]
 ]
 
 const BOX_FACE_EDGE_INDICES: FaceEdgeIndices[] = [
@@ -26,7 +35,7 @@ const BOX_FACE_EDGE_INDICES: FaceEdgeIndices[] = [
   [8, 4, 9, 0],
   [10, 6, 11, 2],
   [11, 7, 8, 3],
-  [9, 5, 10, 1],
+  [9, 5, 10, 1]
 ]
 
 const HIDDEN_EDGE_DASH = [6, 4]
@@ -47,7 +56,10 @@ interface WireframeDrawOptions {
 
 function isFaceVisible(points: Array<ProjectedPoint2D | null>, face: FaceIndices): boolean {
   const [a, b, c, d] = face
-  const pa = points[a], pb = points[b], pc = points[c], pd = points[d]
+  const pa = points[a],
+    pb = points[b],
+    pc = points[c],
+    pd = points[d]
   if (!pa || !pb || !pc || !pd) return false
 
   const cross =
@@ -61,12 +73,17 @@ function isFaceVisible(points: Array<ProjectedPoint2D | null>, face: FaceIndices
 
 function isBoxOutsideClip(
   points: Array<ProjectedPoint2D | null>,
-  clipMinU: number, clipMaxU: number,
-  clipMinV: number, clipMaxV: number,
-  margin: number,
+  clipMinU: number,
+  clipMaxU: number,
+  clipMinV: number,
+  clipMaxV: number,
+  margin: number
 ): boolean {
   let hasPoint = false
-  let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity
+  let minU = Infinity,
+    maxU = -Infinity,
+    minV = Infinity,
+    maxV = -Infinity
 
   for (const p of points) {
     if (!p) continue
@@ -78,11 +95,21 @@ function isBoxOutsideClip(
   }
 
   if (!hasPoint) return true
-  return maxU < clipMinU - margin || minU > clipMaxU + margin ||
-         maxV < clipMinV - margin || minV > clipMaxV + margin
+  return (
+    maxU < clipMinU - margin ||
+    minU > clipMaxU + margin ||
+    maxV < clipMinV - margin ||
+    minV > clipMaxV + margin
+  )
 }
 
-function computeLineWidth(depth: number, near: number, far: number, maxW: number, minW: number): number {
+function computeLineWidth(
+  depth: number,
+  near: number,
+  far: number,
+  maxW: number,
+  minW: number
+): number {
   const t = Math.min(Math.max((depth - near) / (far - near), 0), 1)
   return maxW - t * (maxW - minW)
 }
@@ -101,13 +128,14 @@ function strokeEdgeGroup(
   ctx: CanvasRenderingContext2D,
   points: Array<ProjectedPoint2D | null>,
   mask: number,
-  drawVisible: boolean,
+  drawVisible: boolean
 ): void {
   ctx.beginPath()
   for (let ei = 0; ei < BOX_EDGE_PAIRS.length; ei++) {
     if (((mask & (1 << ei)) !== 0) !== drawVisible) continue
     const [a, b] = BOX_EDGE_PAIRS[ei]
-    const pa = points[a], pb = points[b]
+    const pa = points[a],
+      pb = points[b]
     if (!pa || !pb) continue
     ctx.moveTo(pa.u, pa.v)
     ctx.lineTo(pb.u, pb.v)
@@ -118,17 +146,24 @@ function strokeEdgeGroup(
 function drawSingleBox(
   ctx: CanvasRenderingContext2D,
   box: ProjectedBox3DWireframe,
-  near: number, far: number,
-  clipMinU?: number, clipMaxU?: number, clipMinV?: number, clipMaxV?: number,
+  near: number,
+  far: number,
+  clipMinU?: number,
+  clipMaxU?: number,
+  clipMinV?: number,
+  clipMaxV?: number,
   cullMargin = DEFAULT_CULL_MARGIN_PX,
   displayScale = 1,
-  isSelected = false,
+  isSelected = false
 ): void {
   if (
-    clipMinU !== undefined && clipMaxU !== undefined &&
-    clipMinV !== undefined && clipMaxV !== undefined &&
+    clipMinU !== undefined &&
+    clipMaxU !== undefined &&
+    clipMinV !== undefined &&
+    clipMaxV !== undefined &&
     isBoxOutsideClip(box.points, clipMinU, clipMaxU, clipMinV, clipMaxV, cullMargin)
-  ) return
+  )
+    return
 
   const baseLineW = computeLineWidth(box.depth, near, far, 1.5, 0.5)
   const lineW = isSelected ? baseLineW * 2.5 : baseLineW
@@ -154,9 +189,13 @@ function drawSingleBox(
     strokeEdgeGroup(ctx, box.points, 0xfff, true)
     strokeEdgeGroup(ctx, box.points, 0xfff, false)
   } else {
-    const visibleStroke = `${color}${Math.round(strokeOpacity * 255).toString(16).padStart(2, '0')}`
+    const visibleStroke = `${color}${Math.round(strokeOpacity * 255)
+      .toString(16)
+      .padStart(2, '0')}`
     const hiddenOpacity = Math.max(strokeOpacity * 0.55, 0.2)
-    const hiddenStroke = `${color}${Math.round(hiddenOpacity * 255).toString(16).padStart(2, '0')}`
+    const hiddenStroke = `${color}${Math.round(hiddenOpacity * 255)
+      .toString(16)
+      .padStart(2, '0')}`
 
     ctx.lineWidth = lineW / displayScale
     ctx.strokeStyle = visibleStroke
@@ -177,7 +216,7 @@ function drawSingleBox(
 export function drawPseudo3DWireframes(
   ctx: CanvasRenderingContext2D,
   boxes: ProjectedBox3DWireframe[],
-  options: WireframeDrawOptions = {},
+  options: WireframeDrawOptions = {}
 ): void {
   const near = options.near ?? 1
   const far = options.far ?? 80
@@ -189,17 +228,33 @@ export function drawPseudo3DWireframes(
   for (const box of boxes) {
     if (box.trackId === selectedTrackId) continue
     drawSingleBox(
-      ctx, box, near, far,
-      options.clipMinU, options.clipMaxU, options.clipMinV, options.clipMaxV,
-      cullMargin, displayScale, false,
+      ctx,
+      box,
+      near,
+      far,
+      options.clipMinU,
+      options.clipMaxU,
+      options.clipMinV,
+      options.clipMaxV,
+      cullMargin,
+      displayScale,
+      false
     )
   }
   for (const box of boxes) {
     if (box.trackId !== selectedTrackId) continue
     drawSingleBox(
-      ctx, box, near, far,
-      options.clipMinU, options.clipMaxU, options.clipMinV, options.clipMaxV,
-      cullMargin, displayScale, true,
+      ctx,
+      box,
+      near,
+      far,
+      options.clipMinU,
+      options.clipMaxU,
+      options.clipMinV,
+      options.clipMaxV,
+      cullMargin,
+      displayScale,
+      true
     )
   }
 }

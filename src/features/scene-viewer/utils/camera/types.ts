@@ -13,6 +13,18 @@ export interface ProjectedBox3DWireframe {
   points: Array<ProjectedPoint2D | null>
 }
 
+// NUSVIZ protocol-defined camera channel identifiers.
+export const CAMERA_CHANNELS = [
+  'CAM_FRONT',
+  'CAM_FRONT_LEFT',
+  'CAM_FRONT_RIGHT',
+  'CAM_BACK',
+  'CAM_BACK_LEFT',
+  'CAM_BACK_RIGHT'
+] as const satisfies string[]
+
+export type CameraChannel = (typeof CAMERA_CHANNELS)[number]
+
 export type ChannelProjectedBoxes = Record<string, ProjectedBox3DWireframe[]>
 
 export type OverlayFitMode = 'cover' | 'contain'
