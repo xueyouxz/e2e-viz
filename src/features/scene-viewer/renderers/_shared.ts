@@ -6,12 +6,12 @@ import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 // ─── Module-level temporaries ─────────────────────────────────────────────────
 // Safe to share across layers: all usages are synchronous and non-reentrant.
 
-export const _col  = new THREE.Color()
-export const _v3   = new THREE.Vector3()
+export const _col = new THREE.Color()
+export const _v3 = new THREE.Vector3()
 export const _mat4 = new THREE.Matrix4()
-export const _pos  = new THREE.Vector3()
+export const _pos = new THREE.Vector3()
 export const _quat = new THREE.Quaternion()
-export const _scl  = new THREE.Vector3()
+export const _scl = new THREE.Vector3()
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
