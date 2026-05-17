@@ -43,13 +43,13 @@ A thin R3F component inside a Layer that holds the Three.js geometry and materia
 
 A per-SceneViewer instance Zustand store (created via `createSceneStore()`). Holds all runtime state: current Frame, playback status, stream visibility, metadata. Not a module-level singleton — each `<SceneViewer>` has its own store.
 
-### AppStore
+### ThemeProvider
 
-Module-level Zustand singleton (`useAppStore`). Holds application-wide UI state: `theme`. Syncs `theme` to `localStorage` and `document.documentElement[data-theme]`.
+React Context provider (`src/app/themeContext.tsx`) mounted at the app root via `AppProviders`. Owns `theme`, `setTheme`, and `toggleTheme`. Syncs `theme` to `localStorage` and `document.documentElement[data-theme]`. Consumed via `useTheme()`.
 
 ### Theme
 
-`'dark' | 'light'`. Owned by **AppStore**. Applied globally via `data-theme` on `<html>`. CSS modules consume `--app-*` custom properties that are defined per theme in `src/styles/variables.css`.
+`'dark' | 'light'`. Owned by **ThemeProvider**. Applied globally via `data-theme` on `<html>`. CSS modules consume `--app-*` custom properties defined per theme in `src/styles/variables.css`.
 
 ### ThemeTokens
 
@@ -89,3 +89,4 @@ Non-obvious design choices are recorded in `docs/adr/`. Key entries:
 - [ADR-0002](docs/adr/0002-worker-parse-main-thread-materialize.md) — Why Worker parses but main thread materializes images
 - [ADR-0003](docs/adr/0003-layer-renderer-split.md) — Why Layer and Renderer are separate components
 - [ADR-0004](docs/adr/0004-glyph-selection-svg-filter.md) — Why Glyph selection uses SVG edge-detection filter instead of a border
+- [ADR-0005](docs/adr/0005-theme-react-context.md) — Why Theme state uses React Context instead of Zustand

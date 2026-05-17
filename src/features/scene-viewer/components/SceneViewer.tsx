@@ -16,7 +16,7 @@ import { EgoVehicle } from './EgoVehicle'
 import { StatisticsPanel } from './StatisticsPanel'
 import { PanelToggleBar } from './PanelToggleBar'
 import { SelectedObjectIcon } from './SelectedObjectIcon'
-import { ThemeTokensProvider } from '../themeContext'
+import { ThemeTokensProvider } from '../themeTokensContext'
 import styles from './SceneViewer.module.css'
 
 interface SceneViewerProps {
@@ -76,19 +76,19 @@ function FrameDataSync() {
 }
 
 function SceneViewerInner() {
-  const streamsMeta   = useSceneStore((s) => s.streamsMeta)
-  const cameraMode    = useSceneStore((s) => s.cameraMode)
-  const setCameraMode = useSceneStore((s) => s.setCameraMode)
+  const streamsMeta = useSceneStore(s => s.streamsMeta)
+  const cameraMode = useSceneStore(s => s.cameraMode)
+  const setCameraMode = useSceneStore(s => s.setCameraMode)
 
   const [streamsOpen, setStreamsOpen] = useState(false)
   const [camerasOpen, setCamerasOpen] = useState(true)
-  const [statsOpen, setStatsOpen]     = useState(true)
+  const [statsOpen, setStatsOpen] = useState(true)
 
-  const handleCloseStreams  = useCallback(() => setStreamsOpen(false), [])
-  const handleCloseStats    = useCallback(() => setStatsOpen(false), [])
-  const handleToggleStreams  = useCallback(() => setStreamsOpen((v) => !v), [])
-  const handleToggleCameras = useCallback(() => setCamerasOpen((v) => !v), [])
-  const handleToggleStats   = useCallback(() => setStatsOpen((v) => !v), [])
+  const handleCloseStreams = useCallback(() => setStreamsOpen(false), [])
+  const handleCloseStats = useCallback(() => setStatsOpen(false), [])
+  const handleToggleStreams = useCallback(() => setStreamsOpen(v => !v), [])
+  const handleToggleCameras = useCallback(() => setCamerasOpen(v => !v), [])
+  const handleToggleStats = useCallback(() => setStatsOpen(v => !v), [])
 
   const layers = useMemo(() => {
     return Object.entries(streamsMeta).flatMap(([streamName, meta]) => {
@@ -119,11 +119,7 @@ function SceneViewerInner() {
             <ambientLight intensity={0.5} />
             <EgoVehicle />
             {layers.map(({ streamName, Renderer }) => (
-              <Renderer
-                key={streamName}
-                streamName={streamName}
-                style={getStyle(streamName)}
-              />
+              <Renderer key={streamName} streamName={streamName} style={getStyle(streamName)} />
             ))}
             <SelectedObjectIcon />
             <ShaderPrecompiler />
