@@ -13,7 +13,7 @@ const EGO_RENDER_ORDER = 90
 const EGO_MODEL_FORWARD_OFFSET_M = 0.9
 
 const MODEL_TO_EGO_QUAT = new THREE.Quaternion().setFromEuler(
-  new THREE.Euler(-Math.PI / 2, 0, Math.PI, 'XYZ'),
+  new THREE.Euler(-Math.PI / 2, 0, Math.PI, 'XYZ')
 )
 
 const _pos = new THREE.Vector3()
@@ -21,7 +21,7 @@ const _quat = new THREE.Quaternion()
 const _offset = new THREE.Vector3()
 
 function prepareEgoScene(root: THREE.Object3D): THREE.Object3D {
-  root.traverse((child) => {
+  root.traverse(child => {
     child.frustumCulled = false
     child.renderOrder = EGO_RENDER_ORDER
 

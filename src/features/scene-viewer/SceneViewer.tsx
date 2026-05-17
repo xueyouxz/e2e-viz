@@ -1,22 +1,20 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { createSceneStore } from '../store/sceneStore'
-import { SceneCtx, useSceneStore } from '../context'
-import { SceneDataManager } from '../data/SceneDataManager'
-import { useFrameData } from '../hooks/useFrameData'
-import { layerRegistry } from '../registry/layerRegistry'
-import { getStyle } from '../registry/defaultStyles'
-import { CameraController } from './CameraController'
-import { FrameSynchronizer } from './FrameSynchronizer'
-import { ShaderPrecompiler } from './ShaderPrecompiler'
-import { StreamPanel } from './StreamPanel'
-import { CameraPanel } from './CameraPanel'
-import { TimelineBar } from './TimelineBar'
-import { EgoVehicle } from './EgoVehicle'
-import { StatisticsPanel } from './StatisticsPanel'
-import { PanelToggleBar } from './PanelToggleBar'
-import { SelectedObjectIcon } from './SelectedObjectIcon'
-import { ThemeTokensProvider } from '../themeTokensContext'
+import { createSceneStore } from './store/sceneStore'
+import { SceneCtx, useSceneStore } from './context'
+import { SceneDataManager } from './data/SceneDataManager'
+import { useFrameData } from './hooks/useFrameData'
+import { layerRegistry } from './layerRegistry'
+import { getStyle, ThemeTokensProvider } from './styleConfig'
+import { CameraController } from './scene/CameraController'
+import { SceneEffects } from './scene/SceneEffects'
+import { EgoVehicle } from './scene/EgoVehicle'
+import { SelectedObjectIcon } from './scene/SelectedObjectIcon'
+import { StreamPanel } from './panels/StreamPanel'
+import { CameraPanel } from './panels/CameraPanel'
+import { StatisticsPanel } from './panels/StatisticsPanel'
+import { PanelToggleBar } from './panels/PanelToggleBar'
+import { TimelineBar } from './panels/TimelineBar'
 import styles from './SceneViewer.module.css'
 
 interface SceneViewerProps {
@@ -114,7 +112,7 @@ function SceneViewerInner() {
           gl={{ antialias: true }}
         >
           <Suspense fallback={null}>
-            <FrameSynchronizer />
+            <SceneEffects />
             <CameraController />
             <ambientLight intensity={0.5} />
             <EgoVehicle />
@@ -122,7 +120,6 @@ function SceneViewerInner() {
               <Renderer key={streamName} streamName={streamName} style={getStyle(streamName)} />
             ))}
             <SelectedObjectIcon />
-            <ShaderPrecompiler />
           </Suspense>
         </Canvas>
 

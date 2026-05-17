@@ -3,7 +3,7 @@ import type * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { useSceneStore, useSceneStoreApi } from '../context'
-import { getObjectColor } from '../utils/objectColors'
+import { getObjectColor } from '../styleConfig'
 import type { CuboidPayload } from '../types'
 import styles from './SelectedObjectIcon.module.css'
 

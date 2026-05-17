@@ -1,6 +1,12 @@
-export { default as SceneViewer } from './components/SceneViewer'
+export { default as SceneViewer } from './SceneViewer'
 export { createSceneStore } from './store/sceneStore'
 export { useSceneStore, useSceneStoreApi } from './context'
 export { SceneDataManager } from './data/SceneDataManager'
-export type { SceneMetadata, StreamMeta, StreamPayload, StyleConfig, LayerRendererProps } from './types'
+export type {
+  SceneMetadata,
+  StreamMeta,
+  StreamPayload,
+  StyleConfig,
+  LayerRendererProps
+} from './types'
 export type { SceneStore } from './store/sceneStore'

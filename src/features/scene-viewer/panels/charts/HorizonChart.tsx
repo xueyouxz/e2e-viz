@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { select, scaleLinear, area, curveMonotoneX, interpolateRgb } from 'd3'
 import { useSceneStoreApi } from '../../context'
-import { useThemeTokens } from '../../themeTokens'
+import { useThemeTokens } from '../../styleConfig'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, makeXInvert, seekOnClick } from './chartUtils'
 import styles from '../StatisticsPanel.module.css'
@@ -19,9 +19,8 @@ function bandColor(k: number, n: number): string {
   return _whiteToRed(t)
 }
 
-const BAND_COLORS: readonly string[] = Array.from(
-  { length: NBANDS },
-  (_, k) => bandColor(k, NBANDS),
+const BAND_COLORS: readonly string[] = Array.from({ length: NBANDS }, (_, k) =>
+  bandColor(k, NBANDS)
 )
 
 interface HorizonChartProps {
@@ -37,9 +36,9 @@ export function HorizonChart({
   label,
   domain = [0, 1],
   frameCount,
-  markers,
+  markers
 }: HorizonChartProps) {
-  const store  = useSceneStoreApi()
+  const store = useSceneStoreApi()
   const { chart: palette } = useThemeTokens()
 
   // D3 manages all SVG content inside this <g>.
@@ -73,7 +72,7 @@ export function HorizonChart({
       const areaGen = area<number>()
         .x((_, i) => xScale(i))
         .y0(NBANDS * HC_H)
-        .y1((v) => Math.min(NBANDS * HC_H, Math.max(0, yScale(v))))
+        .y1(v => Math.min(NBANDS * HC_H, Math.max(0, yScale(v))))
         .curve(curveMonotoneX)
 
       fullPath = areaGen(Array.from(data)) ?? ''
@@ -95,19 +94,23 @@ export function HorizonChart({
     // band (k=NBANDS-1) was ever visible.
     const clipId = `hc-clip-${label}`
     const defs = root.append('defs')
-    defs.append('clipPath')
+    defs
+      .append('clipPath')
       .attr('id', clipId)
       .attr('clipPathUnits', 'userSpaceOnUse')
       .append('rect')
-        .attr('x', ML)
-        .attr('y', 0)
-        .attr('width', PLOT_W)
-        .attr('height', HC_H)
+      .attr('x', ML)
+      .attr('y', 0)
+      .attr('width', PLOT_W)
+      .attr('height', HC_H)
 
     // ── Chart background ───────────────────────────────────────────────────────
-    root.append('rect')
-      .attr('x', ML).attr('y', 0)
-      .attr('width', PLOT_W).attr('height', HC_H)
+    root
+      .append('rect')
+      .attr('x', ML)
+      .attr('y', 0)
+      .attr('width', PLOT_W)
+      .attr('height', HC_H)
       .attr('fill', palette.chartBg)
 
     // ── Horizon bands ──────────────────────────────────────────────────────────
@@ -117,20 +120,22 @@ export function HorizonChart({
     // where the shared clip passes it through.
     if (fullPath) {
       BAND_COLORS.forEach((color, k) => {
-        root.append('g')
+        root
+          .append('g')
           .attr('clip-path', `url(#${clipId})`)
           .append('g')
-            .attr('transform', `translate(0, ${-(NBANDS - k - 1) * HC_H})`)
+          .attr('transform', `translate(0, ${-(NBANDS - k - 1) * HC_H})`)
           .append('path')
-            .attr('d', fullPath)
-            .attr('fill', color)
-            .attr('fill-opacity', String(BAND_OPACITY))
-            .attr('stroke', 'none')
+          .attr('d', fullPath)
+          .attr('fill', color)
+          .attr('fill-opacity', String(BAND_OPACITY))
+          .attr('stroke', 'none')
       })
     }
 
     // ── Label ──────────────────────────────────────────────────────────────────
-    root.append('text')
+    root
+      .append('text')
       .attr('text-anchor', 'end')
       .attr('font-size', '8')
       .attr('dominant-baseline', 'middle')
@@ -141,8 +146,9 @@ export function HorizonChart({
 
     // ── Collision markers ──────────────────────────────────────────────────────
     if (hasMarkers) {
-      collisionXs.forEach((cx) => {
-        root.append('circle')
+      collisionXs.forEach(cx => {
+        root
+          .append('circle')
           .attr('cx', cx)
           .attr('cy', HC_H + MARKER_ROW_H / 2)
           .attr('r', 3)
@@ -155,24 +161,20 @@ export function HorizonChart({
 
   const handleClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => seekOnClick(e, xInvert, frameCount, store),
-    [xInvert, frameCount, store],
+    [xInvert, frameCount, store]
   )
 
   return (
     <svg
       viewBox={`0 0 ${SVG_W} ${svgH}`}
-      width="100%"
+      width='100%'
       className={styles.chart}
       onClick={handleClick}
     >
       {/* D3 manages all static chart content here */}
       <g ref={chartRef} />
       {/* FrameCursor stays as React component — it imperatively updates a <line> DOM ref */}
-      <FrameCursor
-        frameCount={frameCount}
-        y1={0} y2={HC_H}
-        stroke={palette.frameStroke}
-      />
+      <FrameCursor frameCount={frameCount} y1={0} y2={HC_H} stroke={palette.frameStroke} />
     </svg>
   )
 }

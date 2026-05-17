@@ -1,6 +1,6 @@
 import { memo, useLayoutEffect, useRef, useState } from 'react'
-import { drawPseudo3DWireframes } from '../lib/camera/wireframe'
-import type { OverlayFitMode, ProjectedBox3DWireframe } from '../lib/camera/types'
+import { drawPseudo3DWireframes } from '../utils/camera/wireframe'
+import type { OverlayFitMode, ProjectedBox3DWireframe } from '../utils/camera/types'
 
 interface CameraOverlayCanvasProps {
   boxes: ProjectedBox3DWireframe[]
@@ -22,20 +22,21 @@ function getViewportTransform(
   containerHeight: number,
   sourceWidth: number,
   sourceHeight: number,
-  fitMode: OverlayFitMode,
+  fitMode: OverlayFitMode
 ): ViewportTransform {
   if (containerWidth <= 0 || containerHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
     return { scale: 1, offsetX: 0, offsetY: 0 }
   }
 
-  const scale = fitMode === 'cover'
-    ? Math.max(containerWidth / sourceWidth, containerHeight / sourceHeight)
-    : Math.min(containerWidth / sourceWidth, containerHeight / sourceHeight)
+  const scale =
+    fitMode === 'cover'
+      ? Math.max(containerWidth / sourceWidth, containerHeight / sourceHeight)
+      : Math.min(containerWidth / sourceWidth, containerHeight / sourceHeight)
 
   return {
     scale,
     offsetX: (containerWidth - sourceWidth * scale) / 2,
-    offsetY: (containerHeight - sourceHeight * scale) / 2,
+    offsetY: (containerHeight - sourceHeight * scale) / 2
   }
 }
 
@@ -45,7 +46,7 @@ function CameraOverlayCanvasComponent({
   sourceHeight,
   fitMode,
   className,
-  selectedTrackId,
+  selectedTrackId
 }: CameraOverlayCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -54,15 +55,15 @@ function CameraOverlayCanvasComponent({
     const canvas = canvasRef.current
     if (!canvas || !canvas.parentElement) return
 
-    const observer = new ResizeObserver((entries) => {
+    const observer = new ResizeObserver(entries => {
       const entry = entries[0]
       if (!entry) return
       const nextWidth = Math.round(entry.contentRect.width)
       const nextHeight = Math.round(entry.contentRect.height)
-      setSize((prev) =>
+      setSize(prev =>
         prev.width === nextWidth && prev.height === nextHeight
           ? prev
-          : { width: nextWidth, height: nextHeight },
+          : { width: nextWidth, height: nextHeight }
       )
     })
 
@@ -85,7 +86,11 @@ function CameraOverlayCanvasComponent({
     ctx.clearRect(0, 0, size.width, size.height)
 
     const { scale, offsetX, offsetY } = getViewportTransform(
-      size.width, size.height, sourceWidth, sourceHeight, fitMode,
+      size.width,
+      size.height,
+      sourceWidth,
+      sourceHeight,
+      fitMode
     )
 
     ctx.save()
@@ -99,7 +104,7 @@ function CameraOverlayCanvasComponent({
       clipMaxV: (size.height - offsetY) / scale,
       cullMargin: 24 / scale,
       displayScale: scale,
-      selectedTrackId,
+      selectedTrackId
     })
 
     ctx.restore()

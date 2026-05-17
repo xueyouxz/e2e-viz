@@ -5,7 +5,7 @@ import { useProjectionMapData } from '@/hooks/useProjectionMapData'
 import type { ProjectionMapPoint } from '@/types/scene'
 import styles from './ProjectionMapPage.module.css'
 
-const SceneViewer = lazy(() => import('@/features/scene-viewer/components/SceneViewer'))
+const SceneViewer = lazy(() => import('@/features/scene-viewer/SceneViewer'))
 
 // Cached across clicks; evicts only on page reload.
 const probeCache = new Map<string, boolean>()

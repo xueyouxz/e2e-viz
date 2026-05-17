@@ -7,12 +7,12 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
+  useState
 } from 'react'
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'react'
 import { Pause, Play } from 'lucide-react'
-import { useThemeTokens } from '../themeTokens'
-import type { TimelineTokens } from '../themeTokens'
+import { useThemeTokens } from '../styleConfig'
+import type { TimelineTokens } from '../styleConfig'
 import styles from './PlaybackTimeline.module.css'
 
 export interface BufferRange {
@@ -96,7 +96,9 @@ function getDomain(timestamps: number[]): number {
 
 function frameToTime(frameIndex: number, timestamps: number[]): number {
   if (timestamps.length === 0) return 0
-  return timestamps[clamp(Math.round(frameIndex), 0, timestamps.length - 1)] ?? getStartTime(timestamps)
+  return (
+    timestamps[clamp(Math.round(frameIndex), 0, timestamps.length - 1)] ?? getStartTime(timestamps)
+  )
 }
 
 function timeToFrame(timeSeconds: number, timestamps: number[]): number {
@@ -123,7 +125,9 @@ function timeToFrame(timeSeconds: number, timestamps: number[]): number {
 
 function useStableCallback<T extends (...args: never[]) => unknown>(fn: T | undefined) {
   const ref = useRef(fn)
-  useLayoutEffect(() => { ref.current = fn })
+  useLayoutEffect(() => {
+    ref.current = fn
+  })
   return useCallback((...args: Parameters<T>): ReturnType<T> | undefined => {
     return ref.current?.(...args) as ReturnType<T> | undefined
   }, [])
@@ -139,7 +143,10 @@ function getPercentForElapsedTime(elapsedSeconds: number, timestamps: number[]):
   return clamp((elapsedSeconds / getDomain(timestamps)) * 100, 0, 100)
 }
 
-function getBufferStyle(bufferRange: BufferRange | undefined, timestamps: number[]): CSSProperties | null {
+function getBufferStyle(
+  bufferRange: BufferRange | undefined,
+  timestamps: number[]
+): CSSProperties | null {
   if (!bufferRange || timestamps.length <= 1) return null
 
   const startTime = getStartTime(timestamps)
@@ -151,34 +158,35 @@ function getBufferStyle(bufferRange: BufferRange | undefined, timestamps: number
 
   return {
     left: `${left}%`,
-    width: `${Math.max(0, right - left)}%`,
+    width: `${Math.max(0, right - left)}%`
   }
 }
 
 function buildTokenStyle(tokens: TimelineTokens): TimelineCssProperties {
-  const padding = typeof tokens.padding === 'number'
-    ? { left: tokens.padding, right: tokens.padding }
-    : { left: tokens.padding.left ?? 14, right: tokens.padding.right ?? 14 }
+  const padding =
+    typeof tokens.padding === 'number'
+      ? { left: tokens.padding, right: tokens.padding }
+      : { left: tokens.padding.left ?? 14, right: tokens.padding.right ?? 14 }
 
   return {
-    '--timeline-background':        tokens.background,
-    '--timeline-padding-left':      `${padding.left}px`,
-    '--timeline-padding-right':     `${padding.right}px`,
-    '--timeline-track-height':      `${tokens.trackHeight}px`,
-    '--timeline-knob-size':         `${tokens.knobSize}px`,
-    '--timeline-knob-border':       tokens.knobBorder,
+    '--timeline-background': tokens.background,
+    '--timeline-padding-left': `${padding.left}px`,
+    '--timeline-padding-right': `${padding.right}px`,
+    '--timeline-track-height': `${tokens.trackHeight}px`,
+    '--timeline-knob-size': `${tokens.knobSize}px`,
+    '--timeline-knob-border': tokens.knobBorder,
     '--timeline-knob-border-active': tokens.knobBorderActive,
-    '--timeline-track-bg':          tokens.trackBg,
-    '--timeline-track-fill':        tokens.trackFill,
-    '--timeline-buffer-fill':       tokens.bufferFill,
-    '--timeline-tick-major-color':  tokens.tickMajorColor,
-    '--timeline-tick-minor-color':  tokens.tickMinorColor,
-    '--timeline-tick-label-color':  tokens.tickLabelColor,
-    '--timeline-text-primary':      tokens.textPrimary,
-    '--timeline-text-secondary':    tokens.textSecondary,
-    '--timeline-btn-color':         tokens.btnColor,
-    '--timeline-btn-hover-color':   tokens.btnHoverColor,
-    '--timeline-border-color':      tokens.borderColor,
+    '--timeline-track-bg': tokens.trackBg,
+    '--timeline-track-fill': tokens.trackFill,
+    '--timeline-buffer-fill': tokens.bufferFill,
+    '--timeline-tick-major-color': tokens.tickMajorColor,
+    '--timeline-tick-minor-color': tokens.tickMinorColor,
+    '--timeline-tick-label-color': tokens.tickLabelColor,
+    '--timeline-text-primary': tokens.textPrimary,
+    '--timeline-text-secondary': tokens.textSecondary,
+    '--timeline-btn-color': tokens.btnColor,
+    '--timeline-btn-hover-color': tokens.btnHoverColor,
+    '--timeline-border-color': tokens.borderColor
   }
 }
 
@@ -187,7 +195,7 @@ function buildTokenStyle(tokens: TimelineTokens): TimelineCssProperties {
 const Ruler = memo(function Ruler({
   timestamps,
   tickInterval,
-  formatTick,
+  formatTick
 }: {
   timestamps: number[]
   tickInterval: number
@@ -211,7 +219,7 @@ const Ruler = memo(function Ruler({
 
   return (
     <div className={styles.ruler}>
-      {ticks.map((tick) => (
+      {ticks.map(tick => (
         <div
           key={tick}
           className={styles.tick}
@@ -227,132 +235,133 @@ const Ruler = memo(function Ruler({
 
 // SliderTrack exposes setPosition for direct DOM updates during playback,
 // bypassing React reconciliation entirely.
-const SliderTrack = memo(forwardRef<SliderTrackHandle, SliderTrackProps>(function SliderTrack({
-  timestamps,
-  frameIndex,
-  markers,
-  bufferRange,
-  onSeek,
-  isPlaying,
-  isDragging,
-  setIsDragging,
-}, ref) {
-  const trackRef = useRef<HTMLDivElement | null>(null)
-  const fillRef = useRef<HTMLDivElement | null>(null)
-  const knobRef = useRef<HTMLDivElement | null>(null)
-  const trackWidthRef = useRef(0)
-  const [isHovered, setIsHovered] = useState(false)
-  const currentTime = frameToTime(frameIndex, timestamps)
-  const currentPercent = getPercentForTime(currentTime, timestamps)
-  const noTransition = isPlaying || isDragging
-  const bufferStyle = getBufferStyle(bufferRange, timestamps)
+const SliderTrack = memo(
+  forwardRef<SliderTrackHandle, SliderTrackProps>(function SliderTrack(
+    { timestamps, frameIndex, markers, bufferRange, onSeek, isPlaying, isDragging, setIsDragging },
+    ref
+  ) {
+    const trackRef = useRef<HTMLDivElement | null>(null)
+    const fillRef = useRef<HTMLDivElement | null>(null)
+    const knobRef = useRef<HTMLDivElement | null>(null)
+    const trackWidthRef = useRef(0)
+    const [isHovered, setIsHovered] = useState(false)
+    const currentTime = frameToTime(frameIndex, timestamps)
+    const currentPercent = getPercentForTime(currentTime, timestamps)
+    const noTransition = isPlaying || isDragging
+    const bufferStyle = getBufferStyle(bufferRange, timestamps)
 
-  // Cache track width for RAF loop — reading offsetWidth inside rAF forces layout.
-  useLayoutEffect(() => {
-    const el = trackRef.current
-    if (!el) return
-    trackWidthRef.current = el.offsetWidth
-    const ro = new ResizeObserver(() => {
-      if (trackRef.current) trackWidthRef.current = trackRef.current.offsetWidth
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+    // Cache track width for RAF loop — reading offsetWidth inside rAF forces layout.
+    useLayoutEffect(() => {
+      const el = trackRef.current
+      if (!el) return
+      trackWidthRef.current = el.offsetWidth
+      const ro = new ResizeObserver(() => {
+        if (trackRef.current) trackWidthRef.current = trackRef.current.offsetWidth
+      })
+      ro.observe(el)
+      return () => ro.disconnect()
+    }, [])
 
-  // Keep knob at the correct compositor-safe position after each React render.
-  useLayoutEffect(() => {
-    if (knobRef.current) {
-      knobRef.current.style.transform = `translateX(${trackWidthRef.current * currentPercent / 100}px)`
+    // Keep knob at the correct compositor-safe position after each React render.
+    useLayoutEffect(() => {
+      if (knobRef.current) {
+        knobRef.current.style.transform = `translateX(${(trackWidthRef.current * currentPercent) / 100}px)`
+      }
+    }, [currentPercent])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        setPosition(percent: number) {
+          if (fillRef.current) fillRef.current.style.transform = `scaleX(${percent / 100})`
+          if (knobRef.current)
+            knobRef.current.style.transform = `translateX(${(trackWidthRef.current * percent) / 100}px)`
+        }
+      }),
+      []
+    )
+
+    const seekFromPointer = useCallback(
+      (clientX: number) => {
+        const rect = trackRef.current?.getBoundingClientRect()
+        if (!rect) return
+
+        const startTime = getStartTime(timestamps)
+        const domain = getDomain(timestamps)
+        onSeek(startTime + ((clientX - rect.left) / rect.width) * domain)
+      },
+      [onSeek, timestamps]
+    )
+
+    const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setIsDragging(true)
+      seekFromPointer(event.clientX)
     }
-  }, [currentPercent])
 
-  useImperativeHandle(ref, () => ({
-    setPosition(percent: number) {
-      if (fillRef.current) fillRef.current.style.transform = `scaleX(${percent / 100})`
-      if (knobRef.current) knobRef.current.style.transform = `translateX(${trackWidthRef.current * percent / 100}px)`
-    },
-  }), [])
+    const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+      if (isDragging) seekFromPointer(event.clientX)
+    }
 
-  const seekFromPointer = useCallback(
-    (clientX: number) => {
-      const rect = trackRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const startTime = getStartTime(timestamps)
-      const domain = getDomain(timestamps)
-      onSeek(startTime + ((clientX - rect.left) / rect.width) * domain)
-    },
-    [onSeek, timestamps],
-  )
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setIsDragging(true)
-    seekFromPointer(event.clientX)
-  }
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (isDragging) seekFromPointer(event.clientX)
-  }
-
-  return (
-    <div
-      ref={trackRef}
-      className={styles.trackInteractive}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={() => setIsDragging(false)}
-      onPointerCancel={() => setIsDragging(false)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className={styles.track}>
-        {bufferStyle && (
-          <div
-            className={`${styles.bufferFill} ${noTransition ? styles.noTransition : ''}`}
-            style={bufferStyle}
-          />
-        )}
-        <div
-          ref={fillRef}
-          className={`${styles.progressFill} ${noTransition ? styles.noTransition : ''}`}
-          style={{ transform: `scaleX(${currentPercent / 100})` }}
-        />
-        {markers.map((marker, index) => {
-          const markerStart = marker.startTime ?? marker.time
-          const markerEnd = marker.endTime ?? marker.time
-          const left = getPercentForTime(markerStart, timestamps)
-          const right = getPercentForTime(markerEnd, timestamps)
-
-          return (
-            <div
-              key={`${markerStart}-${markerEnd}-${index}`}
-              className={styles.marker}
-              style={{
-                left: `${left}%`,
-                width: `${Math.max(0, right - left)}%`,
-                ...marker.style,
-              }}
-            >
-              {marker.content}
-            </div>
-          )
-        })}
-      </div>
+    return (
       <div
-        ref={knobRef}
-        className={`${styles.knob} ${isHovered || isDragging ? styles.knobActive : ''} ${
-          noTransition ? styles.noTransition : ''
-        }`}
-      />
-    </div>
-  )
-}))
+        ref={trackRef}
+        className={styles.trackInteractive}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={() => setIsDragging(false)}
+        onPointerCancel={() => setIsDragging(false)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className={styles.track}>
+          {bufferStyle && (
+            <div
+              className={`${styles.bufferFill} ${noTransition ? styles.noTransition : ''}`}
+              style={bufferStyle}
+            />
+          )}
+          <div
+            ref={fillRef}
+            className={`${styles.progressFill} ${noTransition ? styles.noTransition : ''}`}
+            style={{ transform: `scaleX(${currentPercent / 100})` }}
+          />
+          {markers.map((marker, index) => {
+            const markerStart = marker.startTime ?? marker.time
+            const markerEnd = marker.endTime ?? marker.time
+            const left = getPercentForTime(markerStart, timestamps)
+            const right = getPercentForTime(markerEnd, timestamps)
+
+            return (
+              <div
+                key={`${markerStart}-${markerEnd}-${index}`}
+                className={styles.marker}
+                style={{
+                  left: `${left}%`,
+                  width: `${Math.max(0, right - left)}%`,
+                  ...marker.style
+                }}
+              >
+                {marker.content}
+              </div>
+            )
+          })}
+        </div>
+        <div
+          ref={knobRef}
+          className={`${styles.knob} ${isHovered || isDragging ? styles.knobActive : ''} ${
+            noTransition ? styles.noTransition : ''
+          }`}
+        />
+      </div>
+    )
+  })
+)
 
 const PlayButton = memo(function PlayButton({
   isPlaying,
   onPlay,
-  onPause,
+  onPause
 }: {
   isPlaying: boolean
   onPlay: () => void
@@ -363,12 +372,12 @@ const PlayButton = memo(function PlayButton({
       className={styles.playButton}
       onClick={isPlaying ? onPause : onPlay}
       aria-label={isPlaying ? 'Pause' : 'Play'}
-      type="button"
+      type='button'
     >
       {isPlaying ? (
-        <Pause className={styles.playIcon} aria-hidden="true" fill="currentColor" strokeWidth={0} />
+        <Pause className={styles.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
       ) : (
-        <Play className={styles.playIcon} aria-hidden="true" fill="currentColor" strokeWidth={0} />
+        <Play className={styles.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
       )}
     </button>
   )
@@ -384,14 +393,9 @@ export default function PlaybackTimeline({
   onPause,
   onTimeChange,
   className = '',
-  options = {},
+  options = {}
 }: PlaybackTimelineProps) {
-  const {
-    tickInterval = 2,
-    markers = [],
-    formatTick = fmtMMSS,
-    bufferRange,
-  } = options
+  const { tickInterval = 2, markers = [], formatTick = fmtMMSS, bufferRange } = options
 
   const tokens = useThemeTokens().timeline
 
@@ -431,11 +435,7 @@ export default function PlaybackTimeline({
     playbackStartTimeRef.current = getStartTime(timestamps)
   }, [timestamps])
 
-  const frameIndex = clamp(
-    isControlled ? controlledFrame : internalFrame,
-    0,
-    maxFrameIndex,
-  )
+  const frameIndex = clamp(isControlled ? controlledFrame : internalFrame, 0, maxFrameIndex)
   const isPlaying = isControlled ? controlledPlaying : internalPlaying
 
   useLayoutEffect(() => {
@@ -454,7 +454,7 @@ export default function PlaybackTimeline({
       if (!isControlled) setInternalFrame(clampedFrame)
       stableOnTimeChange({ frameIndex: clampedFrame, timeSeconds, source })
     },
-    [isControlled, maxFrameIndex, stableOnTimeChange],
+    [isControlled, maxFrameIndex, stableOnTimeChange]
   )
 
   const reanchor = useCallback((nextFrame: number) => {
@@ -540,7 +540,7 @@ export default function PlaybackTimeline({
       commitFrame(nextFrame, 'scrub')
       if (isPlaying) reanchor(nextFrame)
     },
-    [commitFrame, isPlaying, reanchor],
+    [commitFrame, isPlaying, reanchor]
   )
 
   // frameIndex removed from deps — read via frameIndexRef to keep this
@@ -550,7 +550,7 @@ export default function PlaybackTimeline({
       setIsDragging(dragging)
       if (!dragging && isPlaying) reanchor(frameIndexRef.current)
     },
-    [isPlaying, reanchor],
+    [isPlaying, reanchor]
   )
 
   // frameIndex removed from deps — read via frameIndexRef.
@@ -582,7 +582,7 @@ export default function PlaybackTimeline({
           break
       }
     },
-    [commitFrame, handlePause, handlePlay, isPlaying, maxFrameIndex, reanchor],
+    [commitFrame, handlePause, handlePlay, isPlaying, maxFrameIndex, reanchor]
   )
 
   const style = useMemo(() => buildTokenStyle(tokens), [tokens])
@@ -591,8 +591,8 @@ export default function PlaybackTimeline({
   return (
     <div
       className={rootClassName}
-      role="region"
-      aria-label="Playback controls"
+      role='region'
+      aria-label='Playback controls'
       tabIndex={0}
       onKeyDown={handleKeyDown}
       style={style}

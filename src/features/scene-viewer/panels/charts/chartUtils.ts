@@ -29,7 +29,7 @@ export function seekOnClick(
   e: MouseEvent<SVGSVGElement>,
   xInvert: (px: number) => number,
   frameCount: number,
-  store: SceneStore,
+  store: SceneStore
 ): void {
   const rect = e.currentTarget.getBoundingClientRect()
   const vbW = e.currentTarget.viewBox.baseVal.width

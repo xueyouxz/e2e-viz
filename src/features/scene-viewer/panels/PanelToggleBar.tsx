@@ -16,36 +16,64 @@ interface PanelToggleBarProps {
 
 function LayersIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden>
-      <polyline points="1,7 7,4 13,7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <polyline points="1,10 7,7 13,10" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <polyline points="1,4 7,1 13,4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width='13' height='13' viewBox='0 0 14 14' aria-hidden>
+      <polyline
+        points='1,7 7,4 13,7'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <polyline
+        points='1,10 7,7 13,10'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <polyline
+        points='1,4 7,1 13,4'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
     </svg>
   )
 }
 
 function CameraIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <rect x="1" y="3" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="7" cy="7.5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M5 3V2.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V3" stroke="currentColor" strokeWidth="1.2" />
+    <svg width='13' height='13' viewBox='0 0 14 14' fill='none' aria-hidden>
+      <rect x='1' y='3' width='12' height='9' rx='1.5' stroke='currentColor' strokeWidth='1.2' />
+      <circle cx='7' cy='7.5' r='2.5' stroke='currentColor' strokeWidth='1.2' />
+      <path d='M5 3V2.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V3' stroke='currentColor' strokeWidth='1.2' />
     </svg>
   )
 }
 
 function ChartIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden>
-      <polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width='13' height='13' viewBox='0 0 14 14' aria-hidden>
+      <polyline
+        points='1,11 4,7 7,9 10,4 13,2'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        fill='none'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
     </svg>
   )
 }
 
 const CAMERA_MODES: { mode: CameraMode; label: string; Icon: typeof Navigation }[] = [
   { mode: 'follow', label: 'Follow', Icon: Navigation },
-  { mode: 'bev',    label: 'Top View', Icon: ScanEye },
-  { mode: 'free',   label: 'Free',   Icon: Move3d },
+  { mode: 'bev', label: 'Top View', Icon: ScanEye },
+  { mode: 'free', label: 'Free', Icon: Move3d }
 ]
 
 export function PanelToggleBar({
@@ -56,7 +84,7 @@ export function PanelToggleBar({
   onToggleCameras,
   onToggleStats,
   cameraMode,
-  onSetCameraMode,
+  onSetCameraMode
 }: PanelToggleBarProps) {
   const [camExpanded, setCamExpanded] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -72,7 +100,7 @@ export function PanelToggleBar({
     return () => document.removeEventListener('mousedown', handler)
   }, [camExpanded])
 
-  const ActiveCamIcon = CAMERA_MODES.find((m) => m.mode === cameraMode)?.Icon ?? Navigation
+  const ActiveCamIcon = CAMERA_MODES.find(m => m.mode === cameraMode)?.Icon ?? Navigation
 
   return (
     <div ref={rootRef} className={styles.toolbar}>
@@ -82,7 +110,7 @@ export function PanelToggleBar({
           className={`${styles.btn} ${streamsOpen ? styles.btnActive : ''}`}
           onClick={onToggleStreams}
           title={streamsOpen ? 'Hide streams panel' : 'Show streams panel'}
-          type="button"
+          type='button'
         >
           <LayersIcon />
           <span>Streams</span>
@@ -92,7 +120,7 @@ export function PanelToggleBar({
           className={`${styles.btn} ${camerasOpen ? styles.btnActive : ''}`}
           onClick={onToggleCameras}
           title={camerasOpen ? 'Hide cameras panel' : 'Show cameras panel'}
-          type="button"
+          type='button'
         >
           <CameraIcon />
           <span>Cameras</span>
@@ -102,7 +130,7 @@ export function PanelToggleBar({
           className={`${styles.btn} ${statsOpen ? styles.btnActive : ''}`}
           onClick={onToggleStats}
           title={statsOpen ? 'Hide statistics panel' : 'Show statistics panel'}
-          type="button"
+          type='button'
         >
           <ChartIcon />
           <span>Stats</span>
@@ -113,9 +141,9 @@ export function PanelToggleBar({
         {/* Camera mode trigger — icon-only, shows active mode */}
         <button
           className={`${styles.btn} ${styles.btnIcon} ${camExpanded ? styles.btnActive : ''}`}
-          onClick={() => setCamExpanded((v) => !v)}
-          title="Camera view"
-          type="button"
+          onClick={() => setCamExpanded(v => !v)}
+          title='Camera view'
+          type='button'
         >
           <ActiveCamIcon size={13} strokeWidth={1.8} />
         </button>
@@ -128,9 +156,12 @@ export function PanelToggleBar({
             <button
               key={mode}
               className={`${styles.camBtn} ${cameraMode === mode ? styles.camBtnActive : ''}`}
-              onClick={() => { onSetCameraMode(mode); setCamExpanded(false) }}
+              onClick={() => {
+                onSetCameraMode(mode)
+                setCamExpanded(false)
+              }}
               title={label}
-              type="button"
+              type='button'
             >
               <Icon size={15} strokeWidth={1.8} />
             </button>

@@ -211,7 +211,9 @@
   background: none;
   border: 1px solid transparent;
   border-radius: 3px;
-  transition: color 0.12s, border-color 0.12s;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .streamToggleBtn:hover {

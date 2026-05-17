@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useSceneStoreApi } from '../../context'
 import { ML, PLOT_W } from './chartUtils'
 
-const PILL_H     = 11
+const PILL_H = 11
 const PILL_PAD_X = 4
-const CHAR_W     = 4.5
+const CHAR_W = 4.5
 
 interface FrameCursorProps {
   frameCount: number
@@ -25,37 +25,44 @@ interface FrameCursorProps {
 }
 
 export function FrameCursor({
-  frameCount, y1, y2, stroke,
+  frameCount,
+  y1,
+  y2,
+  stroke,
   showLine = true,
-  data, valueFormat, circleY,
+  data,
+  valueFormat,
+  circleY,
   colorFromValue,
-  pillBg = 'rgb(0 0 0 / 60%)',
+  pillBg = 'rgb(0 0 0 / 60%)'
 }: FrameCursorProps) {
-  const store     = useSceneStoreApi()
-  const lineRef   = useRef<SVGLineElement>(null)
+  const store = useSceneStoreApi()
+  const lineRef = useRef<SVGLineElement>(null)
   const circleRef = useRef<SVGCircleElement>(null)
-  const pillRef   = useRef<SVGRectElement>(null)
-  const textRef   = useRef<SVGTextElement>(null)
+  const pillRef = useRef<SVGRectElement>(null)
+  const textRef = useRef<SVGTextElement>(null)
 
   useEffect(() => {
-    const toX = (fi: number) =>
-      frameCount > 1 ? ML + (fi / (frameCount - 1)) * PLOT_W : ML
+    const toX = (fi: number) => (frameCount > 1 ? ML + (fi / (frameCount - 1)) * PLOT_W : ML)
 
     const apply = (fi: number) => {
-      const x  = toX(fi)
+      const x = toX(fi)
       const xs = String(x)
 
       if (showLine) {
         const el = lineRef.current
-        if (el) { el.setAttribute('x1', xs); el.setAttribute('x2', xs) }
+        if (el) {
+          el.setAttribute('x1', xs)
+          el.setAttribute('x2', xs)
+        }
       }
 
       if (!circleY) return
 
-      const cy    = circleY(fi)
-      const cys   = String(cy)
-      const v     = data ? (data[fi] ?? 0) : null
-      const color = (colorFromValue && v !== null) ? colorFromValue(v) : stroke
+      const cy = circleY(fi)
+      const cys = String(cy)
+      const v = data ? (data[fi] ?? 0) : null
+      const color = colorFromValue && v !== null ? colorFromValue(v) : stroke
 
       const circleEl = circleRef.current
       if (circleEl) {
@@ -66,10 +73,10 @@ export function FrameCursor({
 
       if (data === undefined || data === null) return
 
-      const label  = v !== null ? (valueFormat ? valueFormat(v) : v.toFixed(2)) : ''
-      const pillW  = label.length * CHAR_W + PILL_PAD_X * 2
-      const pillX  = x - pillW / 2
-      const pillY  = cy - 8 - PILL_H
+      const label = v !== null ? (valueFormat ? valueFormat(v) : v.toFixed(2)) : ''
+      const pillW = label.length * CHAR_W + PILL_PAD_X * 2
+      const pillX = x - pillW / 2
+      const pillY = cy - 8 - PILL_H
 
       const pillEl = pillRef.current
       if (pillEl) {
@@ -90,18 +97,18 @@ export function FrameCursor({
     apply(store.getState().frameIndex)
 
     let prev = store.getState().frameIndex
-    return store.subscribe((s) => {
+    return store.subscribe(s => {
       if (s.frameIndex === prev) return
       prev = s.frameIndex
       apply(s.frameIndex)
     })
   }, [frameCount, store, data, valueFormat, circleY, showLine, stroke, colorFromValue])
 
-  const initFi    = store.getState().frameIndex
-  const initX     = frameCount > 1 ? ML + (initFi / (frameCount - 1)) * PLOT_W : ML
-  const initV     = data ? (data[initFi] ?? 0) : null
-  const initCY    = circleY ? circleY(initFi) : null
-  const initColor = (colorFromValue && initV !== null) ? colorFromValue(initV) : stroke
+  const initFi = store.getState().frameIndex
+  const initX = frameCount > 1 ? ML + (initFi / (frameCount - 1)) * PLOT_W : ML
+  const initV = data ? (data[initFi] ?? 0) : null
+  const initCY = circleY ? circleY(initFi) : null
+  const initColor = colorFromValue && initV !== null ? colorFromValue(initV) : stroke
   const initLabel = initV !== null ? (valueFormat ? valueFormat(initV) : initV.toFixed(2)) : ''
   const initPillW = initLabel.length * CHAR_W + PILL_PAD_X * 2
   const initPillX = initX - initPillW / 2
@@ -112,11 +119,13 @@ export function FrameCursor({
       {showLine && (
         <line
           ref={lineRef}
-          x1={initX} x2={initX}
-          y1={y1} y2={y2}
-          strokeWidth="1"
+          x1={initX}
+          x2={initX}
+          y1={y1}
+          y2={y2}
+          strokeWidth='1'
           stroke={stroke}
-          strokeDasharray="3 2"
+          strokeDasharray='3 2'
         />
       )}
       {circleY != null && (
@@ -126,7 +135,7 @@ export function FrameCursor({
           cy={initCY ?? 0}
           r={4}
           fill={initColor}
-          stroke="none"
+          stroke='none'
           style={{ pointerEvents: 'none' }}
         />
       )}
@@ -146,11 +155,11 @@ export function FrameCursor({
             ref={textRef}
             x={initX}
             y={initPillY + PILL_H / 2}
-            textAnchor="middle"
-            fontSize="7.5"
-            fontWeight="600"
+            textAnchor='middle'
+            fontSize='7.5'
+            fontWeight='600'
             fill={initColor}
-            dominantBaseline="middle"
+            dominantBaseline='middle'
             style={{ pointerEvents: 'none' }}
           >
             {initLabel}

@@ -67,7 +67,7 @@ export function CameraController() {
         fromTarget: controls.target.clone(),
         toPos,
         toTarget,
-        elapsed: 0,
+        elapsed: 0
       }
 
       if (cameraMode === 'follow') snapRef.current = true
@@ -129,7 +129,7 @@ export function CameraController() {
     _prevEgoPos.copy(_egoPos)
   })
 
-  const cameraMode = useSceneStore((s) => s.cameraMode)
+  const cameraMode = useSceneStore(s => s.cameraMode)
 
   return (
     <OrbitControls
@@ -149,7 +149,7 @@ export function CameraController() {
 function computeModeIdealCamPos(
   mode: CameraMode,
   egoPos: THREE.Vector3,
-  rotation: [number, number, number, number],
+  rotation: [number, number, number, number]
 ): THREE.Vector3 {
   if (mode === 'follow') {
     const [w, x, y, z] = rotation
