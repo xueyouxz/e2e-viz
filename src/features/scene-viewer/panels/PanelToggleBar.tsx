@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigation, ScanEye, Move3d } from 'lucide-react'
 import type { CameraMode } from '../store/sceneStore'
-import styles from './PanelToggleBar.module.css'
+
+const cls = {
+  toolbar: 'absolute top-3 left-1/2 z-20 -translate-x-1/2',
+  bar: 'flex items-center gap-[3px] rounded-[10px] border border-app-border-btn bg-app-panel-bg-solid p-[3px]',
+  divider: 'mx-[3px] h-[18px] w-px shrink-0 bg-app-border-btn',
+  btn: 'flex cursor-pointer items-center gap-[5px] rounded-[7px] border-none bg-transparent py-[5px] text-[11px] font-medium tracking-[0.02em] text-app-text-dim transition-colors hover:bg-app-row-hover hover:text-app-text-primary',
+  btnActive: 'bg-app-toggle-active-bg text-app-text-primary',
+  camOptions: 'absolute top-0 left-[calc(100%+8px)] flex animate-fade-slide items-center gap-1.5',
+  camBtn:
+    'flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-lg border-none bg-app-panel-bg-solid text-app-text-dim transition-colors hover:bg-app-bg-hover hover:text-app-text-primary',
+  camBtnActive: 'bg-app-toggle-active-bg text-app-text-primary'
+}
 
 interface PanelToggleBarProps {
   streamsOpen: boolean
@@ -103,11 +114,11 @@ export function PanelToggleBar({
   const ActiveCamIcon = CAMERA_MODES.find(m => m.mode === cameraMode)?.Icon ?? Navigation
 
   return (
-    <div ref={rootRef} className={styles.toolbar}>
+    <div ref={rootRef} className={cls.toolbar}>
       {/* Main pill */}
-      <div className={styles.bar}>
+      <div className={cls.bar}>
         <button
-          className={`${styles.btn} ${streamsOpen ? styles.btnActive : ''}`}
+          className={`${cls.btn} px-2.5 ${streamsOpen ? cls.btnActive : ''}`}
           onClick={onToggleStreams}
           title={streamsOpen ? 'Hide streams panel' : 'Show streams panel'}
           type='button'
@@ -117,7 +128,7 @@ export function PanelToggleBar({
         </button>
 
         <button
-          className={`${styles.btn} ${camerasOpen ? styles.btnActive : ''}`}
+          className={`${cls.btn} px-2.5 ${camerasOpen ? cls.btnActive : ''}`}
           onClick={onToggleCameras}
           title={camerasOpen ? 'Hide cameras panel' : 'Show cameras panel'}
           type='button'
@@ -127,7 +138,7 @@ export function PanelToggleBar({
         </button>
 
         <button
-          className={`${styles.btn} ${statsOpen ? styles.btnActive : ''}`}
+          className={`${cls.btn} px-2.5 ${statsOpen ? cls.btnActive : ''}`}
           onClick={onToggleStats}
           title={statsOpen ? 'Hide statistics panel' : 'Show statistics panel'}
           type='button'
@@ -136,11 +147,11 @@ export function PanelToggleBar({
           <span>Stats</span>
         </button>
 
-        <div className={styles.divider} />
+        <div className={cls.divider} />
 
         {/* Camera mode trigger — icon-only, shows active mode */}
         <button
-          className={`${styles.btn} ${styles.btnIcon} ${camExpanded ? styles.btnActive : ''}`}
+          className={`${cls.btn} px-2 ${camExpanded ? cls.btnActive : ''}`}
           onClick={() => setCamExpanded(v => !v)}
           title='Camera view'
           type='button'
@@ -151,11 +162,11 @@ export function PanelToggleBar({
 
       {/* Expanded camera options — floats to the right with a gap */}
       {camExpanded && (
-        <div className={styles.camOptions}>
+        <div className={cls.camOptions}>
           {CAMERA_MODES.map(({ mode, label, Icon }) => (
             <button
               key={mode}
-              className={`${styles.camBtn} ${cameraMode === mode ? styles.camBtnActive : ''}`}
+              className={`${cls.camBtn} ${cameraMode === mode ? cls.camBtnActive : ''}`}
               onClick={() => {
                 onSetCameraMode(mode)
                 setCamExpanded(false)

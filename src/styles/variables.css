@@ -2,12 +2,8 @@
  *
  * Canonical design tokens live here in a v4 `@theme` block, so each one both
  * (a) emits a CSS custom property on `:root` and (b) generates a Tailwind
- * utility (e.g. `--color-app-panel-bg` → `bg-app-panel-bg`).
- *
- * The legacy `--app-*` aliases in the `:root` block below keep un-migrated
- * `*.module.css` files working during the incremental migration. As each module
- * moves to utility classes, its `var(--app-*)` references disappear; once none
- * remain, the alias block can be deleted. See ADR-0006 / Tailwind migration.
+ * utility (e.g. `--color-app-panel-bg` → `bg-app-panel-bg`). All component
+ * styling consumes these via utilities; there are no longer any CSS modules.
  */
 
 @theme {
@@ -56,6 +52,7 @@
   --animate-fade-in: fade-in 160ms ease;
   --animate-slide-up: slide-up 200ms ease;
   --animate-toast: fade-in 160ms ease, fade-out 300ms ease 3.2s forwards;
+  --animate-fade-slide: fade-slide 0.12s ease;
 
   @keyframes fade-in {
     from {
@@ -86,43 +83,16 @@
       opacity: 0;
     }
   }
-}
 
-/* ── Legacy aliases (remove once all modules are migrated) ─────────────────── */
+  @keyframes fade-slide {
+    from {
+      opacity: 0;
+      transform: translateX(-4px);
+    }
 
-:root {
-  --app-card-hover-shadow: var(--shadow-app-card-hover);
-  --app-panel-bg: var(--color-app-panel-bg);
-  --app-panel-bg-solid: var(--color-app-panel-bg-solid);
-  --app-panel-bg-menu: var(--color-app-panel-bg-menu);
-  --app-cell-bg: var(--color-app-cell-bg);
-  --app-bg-hover: var(--color-app-bg-hover);
-  --app-text-strong: var(--color-app-text-strong);
-  --app-text-primary: var(--color-app-text-primary);
-  --app-text-label: var(--color-app-text-label);
-  --app-text-dim: var(--color-app-text-dim);
-  --app-text-faint: var(--color-app-text-faint);
-  --app-text-ghost: var(--color-app-text-ghost);
-  --app-text-btn: var(--color-app-text-btn);
-  --app-border: var(--color-app-border);
-  --app-border-btn: var(--color-app-border-btn);
-  --app-border-hover: var(--color-app-border-hover);
-  --app-scrollbar: var(--color-app-scrollbar);
-  --app-row-hover: var(--color-app-row-hover);
-  --app-card-bg: var(--color-app-card-bg);
-  --app-card-border: var(--color-app-card-border);
-  --app-grid-gap: var(--color-app-grid-gap);
-  --app-label-overlay-bg: var(--color-app-label-overlay-bg);
-  --app-label-overlay-text: var(--color-app-label-overlay-text);
-  --app-placeholder-text: var(--color-app-placeholder-text);
-  --app-menu-shadow: var(--color-app-menu-shadow);
-  --app-toggle-active-bg: var(--color-app-toggle-active-bg);
-  --app-toggle-active-border: var(--color-app-toggle-active-border);
-  --bar-track: var(--color-app-bar-track);
-
-  --app-surface: var(--color-app-surface);
-  --app-surface-raised: var(--color-app-surface-raised);
-  --app-text: var(--color-app-text);
-  --app-text-muted: var(--color-app-text-muted);
-  --app-page-border: var(--color-app-page-border);
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 }

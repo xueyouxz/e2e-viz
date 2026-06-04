@@ -1,6 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import * as d3 from 'd3'
-import styles from './CategoryBarChart.module.css'
+
+// Utility class strings applied to D3-generated SVG nodes via .attr('class', …).
+// Tailwind's source scanner picks these literals up; fill-* maps to --color-* tokens.
+const cls = {
+  svg: 'block overflow-visible',
+  bgBar: 'fill-app-bar-track',
+  label: 'fill-app-text-label text-[9px] font-semibold tracking-[0.04em] uppercase',
+  countMain: 'text-[11px] font-bold tracking-[-0.01em] tabular-nums',
+  countSep: 'fill-app-text-faint text-[10px] font-medium tabular-nums'
+}
 
 export type BarDatum = {
   id: string
@@ -21,10 +30,10 @@ type Props = {
 const LABEL_W = 36
 const BAR_W = 88
 const COUNT_W = 52
-const GAP = 6
-const ROW_H = 22
+const GAP = 2
+const ROW_H = 12
 const ROW_GAP = 7
-const BAR_H = 18
+const BAR_H = 10
 const PT = 7
 const PB = 7
 const PL = 6
@@ -81,7 +90,7 @@ export function CategoryBarChart({ bars, activeIds, onBarClick }: Props) {
     // Background track — y and height are fixed; width is set in update.
     entered
       .append('rect')
-      .attr('class', `bg ${styles.bgBar}`)
+      .attr('class', `bg ${cls.bgBar}`)
       .attr('x', BAR_X)
       .attr('y', BAR_Y)
       .attr('height', BAR_H)
@@ -98,16 +107,16 @@ export function CategoryBarChart({ bars, activeIds, onBarClick }: Props) {
     // Row label — x and alignment are fixed.
     entered
       .append('text')
-      .attr('class', `lbl ${styles.label}`)
+      .attr('class', `lbl ${cls.label}`)
       .attr('x', PL)
       .attr('y', ROW_H / 2)
-      .attr('text-anchor', 'start')
+      .attr('text-anchor', 'mid')
       .attr('dominant-baseline', 'middle')
 
     // Count pill background — x, y, size are fixed; fill is set in update.
     entered
       .append('rect')
-      .attr('class', `pill ${styles.countPill}`)
+      .attr('class', 'pill')
       .attr('x', COUNT_X)
       .attr('y', PILL_Y)
       .attr('width', PILL_W)
@@ -162,19 +171,19 @@ export function CategoryBarChart({ bars, activeIds, onBarClick }: Props) {
       if (hasSelection && d.selected > 0) {
         node
           .append('tspan')
-          .attr('class', styles.countMain)
+          .attr('class', cls.countMain)
           .attr('fill', d.color)
           .text(String(d.selected))
-        node.append('tspan').attr('class', styles.countSep).text(`/${d.total}`)
+        node.append('tspan').attr('class', cls.countSep).text(`/${d.total}`)
       } else {
         node
           .append('tspan')
-          .attr('class', styles.countMain)
+          .attr('class', cls.countMain)
           .attr('fill', d.color)
           .text(String(d.total))
       }
     })
   }, [bars, activeIds])
 
-  return <svg ref={svgRef} className={styles.svg} width={SVG_W} height={svgHeight(bars.length)} />
+  return <svg ref={svgRef} className={cls.svg} width={SVG_W} height={svgHeight(bars.length)} />
 }

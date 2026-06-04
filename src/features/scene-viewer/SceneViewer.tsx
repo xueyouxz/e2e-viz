@@ -15,7 +15,6 @@ import { CameraPanel } from './panels/CameraPanel'
 import { StatisticsPanel } from './panels/StatisticsPanel'
 import { PanelToggleBar } from './panels/PanelToggleBar'
 import { TimelineBar } from './panels/TimelineBar'
-import styles from './SceneViewer.module.css'
 
 interface SceneViewerProps {
   sceneUrl: string
@@ -121,12 +120,12 @@ function SceneViewerInner() {
   }, [streamsMeta])
 
   return (
-    <div className={styles.root}>
+    <div className='flex h-full w-full flex-col'>
       {/* 帧数据同步：渲染 null，隔离 frameIndex 变化引起的重渲染 */}
       <FrameDataSync />
 
       {/* 画布区域：包含三维 Canvas 和所有浮层面板 */}
-      <div className={styles.canvasArea}>
+      <div className='relative min-h-0 flex-1'>
         {streamsOpen && <StreamPanel onClose={() => setStreamsOpen(false)} />}
         {statsOpen && <StatisticsPanel onClose={() => setStatsOpen(false)} />}
         {camerasOpen && <CameraPanel />}
