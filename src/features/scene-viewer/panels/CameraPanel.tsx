@@ -8,7 +8,19 @@ import type {
   ProjectedBox3DWireframe,
   ProjectedPoint2D
 } from '../utils/camera/types'
-import styles from './CameraPanel.module.css'
+
+const cls = {
+  panel:
+    'absolute right-0 bottom-0 left-0 z-[5] flex h-2/5 flex-col overflow-hidden border-t border-app-border bg-app-panel-bg-solid',
+  grid: 'flex min-h-0 flex-1 flex-col gap-px overflow-hidden bg-app-grid-gap p-px',
+  row: 'grid min-h-0 flex-1 grid-cols-3 gap-px',
+  cell: 'relative flex min-h-0 flex-col overflow-hidden bg-app-cell-bg',
+  mediaWrap: 'relative flex min-h-0 flex-1 cursor-crosshair overflow-hidden',
+  thumb: 'block h-full w-full object-cover',
+  overlayCanvas: 'pointer-events-none absolute inset-0 h-full w-full',
+  placeholder:
+    'flex min-h-0 flex-1 items-center justify-center text-[10px] tracking-[0.06em] text-app-placeholder-text uppercase'
+}
 
 // UI grid layout derived from protocol-defined CAMERA_CHANNELS.
 const CAMERA_ROWS: CameraChannel[][] = [
@@ -127,10 +139,10 @@ export function CameraPanel() {
   )
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.grid}>
+    <div className={cls.panel}>
+      <div className={cls.grid}>
         {CAMERA_ROWS.map(row => (
-          <div key={row.join('-')} className={styles.row}>
+          <div key={row.join('-')} className={cls.row}>
             {row.map(channel => {
               const imagePayload = cameraImages[channel]
               const camInfo = cameras[channel]
@@ -139,17 +151,16 @@ export function CameraPanel() {
               const boxes = projectedBoxes[channel] ?? []
 
               return (
-                <div key={channel} className={styles.cell}>
+                <div key={channel} className={cls.cell}>
                   {imagePayload?.url ? (
                     <div
-                      className={styles.mediaWrap}
+                      className={cls.mediaWrap}
                       onClick={e => handleClick(e, sourceWidth, sourceHeight, boxes)}
-                      style={{ cursor: 'crosshair' }}
                     >
                       <img
                         src={imagePayload.url}
                         alt={channel}
-                        className={styles.thumb}
+                        className={cls.thumb}
                         draggable={false}
                       />
                       <CameraOverlayCanvas
@@ -157,12 +168,12 @@ export function CameraPanel() {
                         sourceWidth={sourceWidth}
                         sourceHeight={sourceHeight}
                         fitMode='cover'
-                        className={styles.overlayCanvas}
+                        className={cls.overlayCanvas}
                         selectedTrackId={selectedTrackId}
                       />
                     </div>
                   ) : (
-                    <div className={styles.placeholder} />
+                    <div className={cls.placeholder} />
                   )}
                 </div>
               )
