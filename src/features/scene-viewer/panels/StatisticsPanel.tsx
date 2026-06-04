@@ -3,7 +3,26 @@ import { useSceneStore } from '../context'
 import { HorizonChart } from './charts/HorizonChart'
 import { EgoStateChart } from './charts/EgoStateChart'
 import { ObjectCountChart } from './charts/ObjectCountChart'
-import styles from './StatisticsPanel.module.css'
+
+const cls = {
+  panel:
+    'absolute top-0 left-0 z-10 flex h-full w-[320px] flex-col overflow-hidden border-r border-app-border bg-app-panel-bg-solid',
+  header: 'flex shrink-0 items-center justify-between border-b border-app-border px-3 py-2.5',
+  title: 'text-[11px] font-semibold tracking-[0.08em] text-app-text-label uppercase',
+  closeBtn:
+    'flex cursor-pointer items-center border-0 bg-transparent px-0.5 text-[18px] leading-none text-app-text-dim hover:text-app-text-strong',
+  content:
+    'flex-1 overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-app-scrollbar [&::-webkit-scrollbar-track]:bg-transparent',
+  legend: 'mb-[5px] flex flex-wrap gap-x-2.5 gap-y-1.5',
+  chartLegendRow: 'mb-1 flex gap-2.5',
+  legendItem: 'flex items-center gap-1 text-[10px] text-app-text-label',
+  legendDot: 'inline-block h-2 w-2 shrink-0 rounded-sm',
+  sectionHeader:
+    'mb-2 border-t border-app-border pt-3 text-[11px] font-bold tracking-[0.07em] text-app-text-label uppercase first:border-t-0 first:pt-1',
+  sceneInfo: 'mb-0.5 border-b border-app-border pt-1.5 pb-2.5',
+  sceneName: 'mb-1 text-[12px] font-semibold text-app-text-strong [overflow-wrap:anywhere]',
+  sceneDesc: 'text-[10px] leading-[1.45] text-app-text-label [overflow-wrap:anywhere]'
+}
 
 const GT_STREAM = '/gt/objects/bounds'
 const PRED_STREAM = '/pred/sparsedrive/objects/bounds'
@@ -42,10 +61,10 @@ interface LegendProps {
 
 function Legend({ entries }: LegendProps) {
   return (
-    <div className={styles.legend}>
+    <div className={cls.legend}>
       {entries.map(e => (
-        <span key={e.key} className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ background: e.color, opacity: e.opacity }} />
+        <span key={e.key} className={cls.legendItem}>
+          <span className={cls.legendDot} style={{ background: e.color, opacity: e.opacity }} />
           {e.key}
         </span>
       ))}
@@ -54,14 +73,14 @@ function Legend({ entries }: LegendProps) {
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
-  return <div className={styles.sectionHeader}>{children}</div>
+  return <div className={cls.sectionHeader}>{children}</div>
 }
 
 function SceneInfoBlock({ name, description }: { name: string; description: string }) {
   return (
-    <div className={styles.sceneInfo}>
-      {name && <div className={styles.sceneName}>{name}</div>}
-      {description && <div className={styles.sceneDesc}>{description}</div>}
+    <div className={cls.sceneInfo}>
+      {name && <div className={cls.sceneName}>{name}</div>}
+      {description && <div className={cls.sceneDesc}>{description}</div>}
     </div>
   )
 }
@@ -110,15 +129,15 @@ export function StatisticsPanel({ onClose }: StatisticsPanelProps) {
   if (!statistics) return null
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.header}>
-        <span className={styles.title}>统计信息</span>
-        <button className={styles.closeBtn} onClick={onClose} title='收起'>
+    <div className={cls.panel}>
+      <div className={cls.header}>
+        <span className={cls.title}>统计信息</span>
+        <button className={cls.closeBtn} onClick={onClose} title='收起'>
           ×
         </button>
       </div>
 
-      <div className={styles.content}>
+      <div className={cls.content}>
         {(sceneName || sceneDescription) && (
           <SceneInfoBlock name={sceneName} description={sceneDescription} />
         )}
@@ -145,13 +164,13 @@ export function StatisticsPanel({ onClose }: StatisticsPanelProps) {
         )}
 
         <SectionHeader>自车状态</SectionHeader>
-        <div className={styles.chartLegendRow}>
-          <span className={styles.legendItem}>
-            <span className={styles.legendDot} style={{ background: SPEED_COLOR }} />
+        <div className={cls.chartLegendRow}>
+          <span className={cls.legendItem}>
+            <span className={cls.legendDot} style={{ background: SPEED_COLOR }} />
             速度
           </span>
-          <span className={styles.legendItem}>
-            <span className={styles.legendDot} style={{ background: ACCEL_COLOR }} />
+          <span className={cls.legendItem}>
+            <span className={cls.legendDot} style={{ background: ACCEL_COLOR }} />
             加速度
           </span>
         </div>

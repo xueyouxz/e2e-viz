@@ -4,7 +4,6 @@ import { useSceneStoreApi } from '../../context'
 import { svgTokens } from '../../styleConfig'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, arrayMax, arrayMin, makeXInvert, seekOnClick } from './chartUtils'
-import styles from '../StatisticsPanel.module.css'
 
 function accelColor(v: number): string {
   return v >= 0 ? ACCEL_POS : ACCEL_NEG
@@ -140,7 +139,7 @@ export function EgoStateChart({ egoSpeed, egoAcceleration, frameCount }: EgoStat
     <svg
       viewBox={`0 0 ${SVG_W} ${EGO_H}`}
       width='100%'
-      className={styles.chart}
+      className='mb-2.5 block w-full cursor-crosshair overflow-visible'
       onClick={handleClick}
     >
       {/* ── Speed ─────────────────────────────────────────────────────────────── */}

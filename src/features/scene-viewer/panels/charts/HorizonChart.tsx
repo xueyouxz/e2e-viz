@@ -4,7 +4,6 @@ import { useSceneStoreApi } from '../../context'
 import { svgTokens } from '../../styleConfig'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, makeXInvert, seekOnClick } from './chartUtils'
-import styles from '../StatisticsPanel.module.css'
 
 const HC_H = 42
 const NBANDS = 5
@@ -168,7 +167,7 @@ export function HorizonChart({
     <svg
       viewBox={`0 0 ${SVG_W} ${svgH}`}
       width='100%'
-      className={styles.chart}
+      className='mb-2.5 block w-full cursor-crosshair overflow-visible'
       onClick={handleClick}
     >
       {/* D3 manages all static chart content here */}

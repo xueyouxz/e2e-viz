@@ -5,11 +5,14 @@ import { svgTokens } from '../../styleConfig'
 import type { ObjectCountSeries } from '../../types'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, arrayMax, makeXInvert, seekOnClick } from './chartUtils'
-import styles from '../StatisticsPanel.module.css'
 
 const STREAM_H = 80
 const STREAM_TOP = 14
 const STREAM_BOT = STREAM_H - 4
+
+const toggleBtn =
+  'cursor-pointer rounded-[3px] border border-transparent bg-transparent px-2 py-0.5 text-[10px] font-semibold tracking-[0.05em] text-app-text-dim transition-colors hover:text-app-text-label'
+const toggleBtnActive = 'border-app-border-btn bg-app-card-bg text-app-text-strong'
 
 const CATEGORY_COLORS: Record<string, string> = {
   car: '#4B8CF8',
@@ -103,16 +106,16 @@ export function ObjectCountChart({ gtSeries, predSeries, frameCount }: ObjectCou
 
   return (
     <div>
-      <div className={styles.streamToggle}>
+      <div className='mb-1.5 flex gap-0.5'>
         <button
-          className={`${styles.streamToggleBtn} ${active === 'gt' ? styles.streamToggleBtnActive : ''}`}
+          className={`${toggleBtn} ${active === 'gt' ? toggleBtnActive : ''}`}
           onClick={() => setActive('gt')}
           type='button'
         >
           GT
         </button>
         <button
-          className={`${styles.streamToggleBtn} ${active === 'pred' ? styles.streamToggleBtnActive : ''}`}
+          className={`${toggleBtn} ${active === 'pred' ? toggleBtnActive : ''}`}
           onClick={() => setActive('pred')}
           type='button'
         >
@@ -123,7 +126,7 @@ export function ObjectCountChart({ gtSeries, predSeries, frameCount }: ObjectCou
       <svg
         viewBox={`0 0 ${SVG_W} ${STREAM_H}`}
         width='100%'
-        className={styles.chart}
+        className='mb-2.5 block w-full cursor-crosshair overflow-visible'
         onClick={handleClick}
       >
         <text {...tick} x={ML - 4} y={STREAM_TOP}>
