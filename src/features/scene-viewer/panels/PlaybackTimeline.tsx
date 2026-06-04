@@ -13,7 +13,33 @@ import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'reac
 import { Pause, Play } from 'lucide-react'
 import { svgTokens } from '../styleConfig'
 import type { TimelineTokens } from '../styleConfig'
-import styles from './PlaybackTimeline.module.css'
+
+// Structural styling as utilities; colours/sizes are read from the --timeline-*
+// custom properties injected on the root by buildTokenStyle (sourced from the
+// light svgTokens.timeline — the single source of truth, see ADR-0006).
+const cls = {
+  root: 'box-border border-t border-t-[var(--timeline-border-color,#e2e8f0)] bg-[var(--timeline-background)] pt-2.5 pr-[var(--timeline-padding-right)] pb-[5px] pl-[var(--timeline-padding-left)] font-[Helvetica_Neue,Arial,sans-serif] text-[11px] text-[var(--timeline-text-primary)] outline-none select-none',
+  controlRow: 'flex items-end gap-2.5',
+  ruler: 'relative mb-[-3px] h-4',
+  tick: 'pointer-events-none absolute bottom-0 flex flex-col items-center',
+  tickLabel:
+    'absolute bottom-[calc(100%+3px)] left-1/2 -translate-x-1/2 text-[11px] leading-none font-bold tracking-[0] whitespace-nowrap tabular-nums text-[var(--timeline-tick-label-color)]',
+  tickLine: 'h-2 w-px bg-[var(--timeline-tick-major-color)]',
+  playButton:
+    'flex h-7 w-7 shrink-0 translate-y-[3px] cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-[var(--timeline-btn-color)] transition-colors hover:text-[var(--timeline-btn-hover-color)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--timeline-knob-border-active)]',
+  playIcon: 'h-[17px] w-[17px]',
+  trackColumn: 'min-w-0 flex-1',
+  trackInteractive:
+    'group relative h-[calc(var(--timeline-knob-size)+4px)] cursor-pointer touch-none',
+  track:
+    'absolute top-1/2 right-0 left-0 h-[var(--timeline-track-height)] -translate-y-1/2 rounded-[calc(var(--timeline-track-height)/2)] bg-[var(--timeline-track-bg)] transition-[height] duration-150 group-hover:h-[calc(var(--timeline-track-height)*3)] group-hover:rounded-[calc(var(--timeline-track-height)*3/2)]',
+  bufferFill:
+    'absolute top-0 left-0 z-[1] h-full min-w-[2px] rounded-[calc(var(--timeline-track-height)/2)] bg-[var(--timeline-buffer-fill)]',
+  progressFill:
+    'absolute top-0 left-0 z-[2] h-full w-full origin-[left_center] rounded-[calc(var(--timeline-track-height)/2)] bg-[var(--timeline-track-fill)]',
+  marker: 'absolute z-[4] h-full',
+  knob: 'pointer-events-none absolute top-1/2 left-0 z-[5] mt-[calc(var(--timeline-knob-size)/-2)] ml-[calc(var(--timeline-knob-size)/-2)] h-[var(--timeline-knob-size)] w-[var(--timeline-knob-size)] rounded-full border-2 bg-[var(--timeline-background)]'
+}
 
 export interface BufferRange {
   start: number
@@ -218,15 +244,15 @@ const Ruler = memo(function Ruler({
   }, [duration, tickInterval])
 
   return (
-    <div className={styles.ruler}>
+    <div className={cls.ruler}>
       {ticks.map(tick => (
         <div
           key={tick}
-          className={styles.tick}
+          className={cls.tick}
           style={{ left: `${getPercentForElapsedTime(tick, timestamps)}%` }}
         >
-          <span className={styles.tickLabel}>{formatTick(tick)}</span>
-          <div className={styles.tickLine} />
+          <span className={cls.tickLabel}>{formatTick(tick)}</span>
+          <div className={cls.tickLine} />
         </div>
       ))}
     </div>
@@ -306,7 +332,7 @@ const SliderTrack = memo(
     return (
       <div
         ref={trackRef}
-        className={styles.trackInteractive}
+        className={cls.trackInteractive}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={() => setIsDragging(false)}
@@ -314,16 +340,16 @@ const SliderTrack = memo(
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={styles.track}>
+        <div className={cls.track}>
           {bufferStyle && (
             <div
-              className={`${styles.bufferFill} ${noTransition ? styles.noTransition : ''}`}
+              className={`${cls.bufferFill} ${noTransition ? 'transition-none' : 'transition-[left,width] duration-300'}`}
               style={bufferStyle}
             />
           )}
           <div
             ref={fillRef}
-            className={`${styles.progressFill} ${noTransition ? styles.noTransition : ''}`}
+            className={`${cls.progressFill} ${noTransition ? 'transition-none' : 'transition-transform duration-300'}`}
             style={{ transform: `scaleX(${currentPercent / 100})` }}
           />
           {markers.map((marker, index) => {
@@ -335,7 +361,7 @@ const SliderTrack = memo(
             return (
               <div
                 key={`${markerStart}-${markerEnd}-${index}`}
-                className={styles.marker}
+                className={cls.marker}
                 style={{
                   left: `${left}%`,
                   width: `${Math.max(0, right - left)}%`,
@@ -349,9 +375,11 @@ const SliderTrack = memo(
         </div>
         <div
           ref={knobRef}
-          className={`${styles.knob} ${isHovered || isDragging ? styles.knobActive : ''} ${
-            noTransition ? styles.noTransition : ''
-          }`}
+          className={`${cls.knob} ${
+            isHovered || isDragging
+              ? 'border-[var(--timeline-knob-border-active)]'
+              : 'border-[var(--timeline-knob-border)]'
+          } ${noTransition ? 'transition-none' : 'transition-[transform,border-color] duration-300'}`}
         />
       </div>
     )
@@ -369,15 +397,15 @@ const PlayButton = memo(function PlayButton({
 }) {
   return (
     <button
-      className={styles.playButton}
+      className={cls.playButton}
       onClick={isPlaying ? onPause : onPlay}
       aria-label={isPlaying ? 'Pause' : 'Play'}
       type='button'
     >
       {isPlaying ? (
-        <Pause className={styles.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
+        <Pause className={cls.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
       ) : (
-        <Play className={styles.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
+        <Play className={cls.playIcon} aria-hidden='true' fill='currentColor' strokeWidth={0} />
       )}
     </button>
   )
@@ -586,7 +614,7 @@ export default function PlaybackTimeline({
   )
 
   const style = useMemo(() => buildTokenStyle(tokens), [tokens])
-  const rootClassName = `${styles.root} ${className}`.trim()
+  const rootClassName = `${cls.root} ${className}`.trim()
 
   return (
     <div
@@ -597,9 +625,9 @@ export default function PlaybackTimeline({
       onKeyDown={handleKeyDown}
       style={style}
     >
-      <div className={styles.controlRow}>
+      <div className={cls.controlRow}>
         <PlayButton isPlaying={isPlaying} onPlay={handlePlay} onPause={handlePause} />
-        <div className={styles.trackColumn}>
+        <div className={cls.trackColumn}>
           <Ruler timestamps={timestamps} tickInterval={tickInterval} formatTick={formatTick} />
           <SliderTrack
             ref={sliderTrackRef}
