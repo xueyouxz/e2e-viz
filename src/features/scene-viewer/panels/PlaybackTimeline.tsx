@@ -11,7 +11,7 @@ import {
 } from 'react'
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from 'react'
 import { Pause, Play } from 'lucide-react'
-import { useThemeTokens } from '../styleConfig'
+import { svgTokens } from '../styleConfig'
 import type { TimelineTokens } from '../styleConfig'
 import styles from './PlaybackTimeline.module.css'
 
@@ -397,7 +397,7 @@ export default function PlaybackTimeline({
 }: PlaybackTimelineProps) {
   const { tickInterval = 2, markers = [], formatTick = fmtMMSS, bufferRange } = options
 
-  const tokens = useThemeTokens().timeline
+  const tokens = svgTokens.timeline
 
   const isControlled = controlledFrame !== undefined && controlledPlaying !== undefined
   const maxFrameIndex = Math.max(0, timestamps.length - 1)

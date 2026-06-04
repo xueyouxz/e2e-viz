@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState } from 'react'
 import { scaleLinear, area, stack, curveMonotoneX } from 'd3'
 import { useSceneStoreApi } from '../../context'
-import { useThemeTokens } from '../../styleConfig'
+import { svgTokens } from '../../styleConfig'
 import type { ObjectCountSeries } from '../../types'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, arrayMax, makeXInvert, seekOnClick } from './chartUtils'
@@ -49,7 +49,7 @@ interface ObjectCountChartProps {
 
 export function ObjectCountChart({ gtSeries, predSeries, frameCount }: ObjectCountChartProps) {
   const store = useSceneStoreApi()
-  const { chart: palette } = useThemeTokens()
+  const { chart: palette } = svgTokens
   const [active, setActive] = useState<ActiveView>('gt')
 
   const { paths, xInvert, maxLabel } = useMemo(() => {

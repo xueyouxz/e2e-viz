@@ -1,6 +1,10 @@
 # ADR-0005: Theme state managed by React Context, not Zustand
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0006](./0006-remove-theme-system.md)
+
+> The dark/light theme system described below was removed in ADR-0006. The app
+> now ships a single light palette with no runtime theme switching. This record
+> is retained for historical context.
 
 ## Context
 

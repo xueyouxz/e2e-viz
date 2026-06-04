@@ -39,17 +39,9 @@ A React Three Fiber component that renders one Stream's `StreamPayload` directly
 
 A per-SceneViewer instance Zustand store (created via `createSceneStore()`). Holds all runtime state: current Frame, playback status, stream visibility, metadata. Not a module-level singleton — each `<SceneViewer>` has its own store.
 
-### ThemeProvider
+### svgTokens
 
-React Context provider (`src/app/themeContext.tsx`) mounted at the app root via `AppProviders`. Owns `theme`, `setTheme`, and `toggleTheme`. Syncs `theme` to `localStorage` and `document.documentElement[data-theme]`. Consumed via `useTheme()`.
-
-### Theme
-
-`'dark' | 'light'`. Owned by **ThemeProvider**. Applied globally via `data-theme` on `<html>`. CSS modules consume `--app-*` custom properties defined per theme in `src/styles/variables.css`.
-
-### ThemeTokens
-
-A JS object (`ThemeTokens`) providing colour values for SVG/canvas elements that cannot consume CSS variables (D3 charts, PlaybackTimeline). Derived from `theme` via `ThemeTokensContext` inside SceneViewer.
+A frozen JS object (`svgTokens`, type `SvgTokens`) in `styleConfig.tsx` providing colour values for SVG/canvas elements that cannot consume CSS variables (D3 charts, PlaybackTimeline). The app ships a single light palette with no runtime theme switching (see ADR-0006); CSS modules consume `--app-*` custom properties defined in `:root` in `src/styles/variables.css`.
 
 ### ProjectionMap
 
@@ -85,4 +77,5 @@ Non-obvious design choices are recorded in `docs/adr/`. Key entries:
 - [ADR-0002](docs/adr/0002-worker-parse-main-thread-materialize.md) — Why Worker parses but main thread materializes images
 - [ADR-0003](docs/adr/0003-layer-renderer-split.md) — Why Layer and Renderer are separate components
 - [ADR-0004](docs/adr/0004-glyph-selection-svg-filter.md) — Why Glyph selection uses SVG edge-detection filter instead of a border
-- [ADR-0005](docs/adr/0005-theme-react-context.md) — Why Theme state uses React Context instead of Zustand
+- [ADR-0005](docs/adr/0005-theme-react-context.md) — Theme state via React Context (superseded by ADR-0006)
+- [ADR-0006](docs/adr/0006-remove-theme-system.md) — Why the theme system was removed in favour of a single light palette

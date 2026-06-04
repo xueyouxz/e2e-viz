@@ -38,7 +38,6 @@ Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → Sc
 
 ### State
 
-- **ThemeProvider** (`src/app/themeContext.tsx`) — React Context at the app root. Owns `theme` (`'dark'|'light'`), synced to `localStorage` and `document.documentElement[data-theme]`. Consumed via `useTheme()`. Not Zustand — see ADR-0005.
 - **SceneStore** (`src/features/scene-viewer/store/sceneStore.ts`) — created via `createSceneStore()` factory, not a singleton. Each `<SceneViewer>` mount gets its own store instance passed through `SceneCtx`. Never refactor to a singleton (ADR-0001).
 
 ### Scene data pipeline
@@ -57,9 +56,9 @@ Five `StreamType` values from the NUSVIZ protocol are rendered via the registry 
 
 Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Renderer + one registry entry.
 
-### Theming
+### Styling
 
-CSS: `--app-*` custom properties in `src/styles/variables.css` per `[data-theme]`. For SVG/canvas elements (D3 charts, PlaybackTimeline) that cannot consume CSS variables: `ThemeTokens` JS object derived from `theme` via `ThemeTokensContext` inside SceneViewer.
+A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `--app-*` custom properties in `:root` in `src/styles/variables.css`. For SVG/canvas elements (D3 charts, PlaybackTimeline) that cannot consume CSS variables: the `svgTokens` constant in `styleConfig.tsx`.
 
 ## Key constraints
 

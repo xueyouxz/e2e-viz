@@ -1,10 +1,9 @@
-import { createContext, useContext, useMemo } from 'react'
-import type { ReactNode } from 'react'
-import { useTheme } from '@/app/themeContext'
 import type { StyleConfig } from './types'
 
-// ─── Object class colors ───────────────────────────────────────────────────────
-// Maps NUSVIZ class IDs (protocol §11.1) to visual color and stroke opacity.
+// ─── 目标类别颜色表 ──────────────────────────────────────────────────────────
+//
+// 按 NUSVIZ 协议 §11.1 的类别 ID 映射到视觉颜色和描边不透明度。
+// 每种交通参与者使用固定色，确保跨帧、跨场景的视觉一致性。
 
 interface ObjectColorConfig {
   color: string
@@ -12,35 +11,41 @@ interface ObjectColorConfig {
 }
 
 const OBJECT_CLASS_COLORS: Record<number, ObjectColorConfig> = {
-  0: { color: '#6B7280', strokeOpacity: 0.8 }, // unknown
-  1: { color: '#DC2626', strokeOpacity: 0.8 }, // barrier
-  2: { color: '#D97706', strokeOpacity: 0.8 }, // bicycle
-  3: { color: '#7C3AED', strokeOpacity: 0.8 }, // bus
-  4: { color: '#4B8CF8', strokeOpacity: 0.8 }, // car
-  5: { color: '#EA580C', strokeOpacity: 0.8 }, // construction_vehicle
-  6: { color: '#0D9488', strokeOpacity: 0.8 }, // motorcycle
-  7: { color: '#16A34A', strokeOpacity: 0.8 }, // pedestrian
-  8: { color: '#E11D48', strokeOpacity: 0.8 }, // traffic_cone
-  9: { color: '#4F46E5', strokeOpacity: 0.8 }, // trailer
-  10: { color: '#0284C7', strokeOpacity: 0.8 } // truck
+  0: { color: '#6B7280', strokeOpacity: 0.8 }, // unknown（未知）
+  1: { color: '#DC2626', strokeOpacity: 0.8 }, // barrier（隔离墩）
+  2: { color: '#D97706', strokeOpacity: 0.8 }, // bicycle（自行车）
+  3: { color: '#7C3AED', strokeOpacity: 0.8 }, // bus（公交）
+  4: { color: '#4B8CF8', strokeOpacity: 0.8 }, // car（乘用车）
+  5: { color: '#EA580C', strokeOpacity: 0.8 }, // construction_vehicle（工程车）
+  6: { color: '#0D9488', strokeOpacity: 0.8 }, // motorcycle（摩托车）
+  7: { color: '#16A34A', strokeOpacity: 0.8 }, // pedestrian（行人）
+  8: { color: '#E11D48', strokeOpacity: 0.8 }, // traffic_cone（锥桶）
+  9: { color: '#4F46E5', strokeOpacity: 0.8 }, // trailer（挂车）
+  10: { color: '#0284C7', strokeOpacity: 0.8 } // truck（货车）
 }
 
+// 协议中未枚举的 classId 使用灰色兜底，strokeOpacity 略低以区分已知类别
 const FALLBACK_COLOR: ObjectColorConfig = { color: '#9CA3AF', strokeOpacity: 0.64 }
 
 export function getObjectColor(classId: number): ObjectColorConfig {
   return OBJECT_CLASS_COLORS[classId] ?? FALLBACK_COLOR
 }
 
-// ─── Stream default styles ─────────────────────────────────────────────────────
-// Render order hierarchy (higher = renders later / appears on top):
-//   -20  basemap image          (always below everything)
-//   -10  gt map polygon fills   (below dynamic 3D data)
-//    0   point cloud            (lidar, real 3D heights)
-//    1   pred map polylines     (above basemap/polygons)
-//    2   cuboid fills           (3D objects)
-//    5   trajectories / paths   (above map, below cuboid edges)
-//   12   cuboid edges           (CuboidRenderer adds +10 automatically)
+// ─── 流默认样式表 ────────────────────────────────────────────────────────────
+//
+// renderOrder 层级说明（数值越大越晚渲染，显示在上层）：
+//   -20  底图图像（basemap）  ← 永远在最底层
+//   -10  GT 地图多边形填充   ← 低于动态三维数据
+//    0   点云（lidar）       ← 真实三维高度数据
+//    1   预测地图折线        ← 高于底图/多边形
+//    2   包围盒填充          ← 三维目标
+//    5   轨迹/规划路径       ← 高于地图，低于包围盒边框
+//   12   包围盒边框          ← CuboidRenderer 在 renderOrder 上自动 +10
 
+/**
+ * 线性插值两个 hex 颜色，t ∈ [0, 1]。
+ * 用于 planning 流按 L2 误差实时着色（0m 绿 → 3m 红）。
+ */
 function lerpColor(hexA: string, hexB: string, t: number): string {
   const ar = parseInt(hexA.slice(1, 3), 16)
   const ag = parseInt(hexA.slice(3, 5), 16)
@@ -53,13 +58,15 @@ function lerpColor(hexA: string, hexB: string, t: number): string {
     .padStart(2, '0')
   const g = Math.round(ag + (bg - ag) * t)
     .toString(16)
-    .padStart(2, '00')
+    .padStart(2, '0')
   const b = Math.round(ab + (bb - ab) * t)
     .toString(16)
     .padStart(2, '0')
   return `#${r}${g}${b}`
 }
 
+// 按流路径配置的默认样式，getStyle() 在流名称匹配时返回对应配置，
+// 未匹配时返回 {}（各渲染器自行使用内置默认值）
 export const defaultStyles: Record<string, StyleConfig> = {
   '/lidar': { color: '#ffffff', opacity: 0.8, renderOrder: 0 },
 
@@ -76,7 +83,8 @@ export const defaultStyles: Record<string, StyleConfig> = {
     opacity: 0.9,
     lineWidth: 1,
     renderOrder: 5,
-    // planning L2 error 0 m → green, 3 m → red, linear interpolation
+    // styleFn：运行时动态样式，根据当前帧的规划 L2 误差插值颜色
+    // L2 误差 0m → 绿色（#00e676），3m → 红色（#ff1744），线性插值
     styleFn: ({ frameIndex, metrics }) => {
       const l2 = metrics?.['planning']?.[frameIndex]
       if (l2 == null) return { color: '#00e676' }
@@ -104,6 +112,7 @@ export const defaultStyles: Record<string, StyleConfig> = {
     renderOrder: 1
   },
 
+  // GT 地图层：低不透明度 + 负 renderOrder，确保不遮挡动态三维数据
   '/gt/map/drivable_area': {
     color: '#ffffff',
     opacity: 0.25,
@@ -128,12 +137,15 @@ export const defaultStyles: Record<string, StyleConfig> = {
   '/map/basemap': { opacity: 0.8, renderOrder: -20 }
 }
 
+/** 返回指定流的样式配置，未注册的流返回空对象（渲染器使用自身默认值） */
 export function getStyle(streamName: string): StyleConfig {
   return defaultStyles[streamName] ?? {}
 }
 
-// ─── SVG / canvas theme tokens ─────────────────────────────────────────────────
-// Used by D3 charts and PlaybackTimeline, which cannot consume CSS variables.
+// ─── SVG / Canvas 调色板 ──────────────────────────────────────────────────────
+//
+// D3 图表和 PlaybackTimeline 工作在 SVG/Canvas 环境中，无法消费 CSS 自定义属性，
+// 因此通过 JS 对象传递颜色值。
 
 export interface SvgPalette {
   chartBg: string
@@ -168,46 +180,13 @@ export interface TimelineTokens {
   borderColor: string
 }
 
-export interface ThemeTokens {
+export interface SvgTokens {
   chart: SvgPalette
   timeline: TimelineTokens
 }
 
-export const DARK_TOKENS: ThemeTokens = {
-  chart: {
-    chartBg: 'rgb(255 255 255 / 4%)',
-    frameStroke: 'rgb(255 255 255 / 50%)',
-    labelFill: 'rgb(255 255 255 / 50%)',
-    tickFill: 'rgb(255 255 255 / 36%)',
-    baseStroke: 'rgb(255 255 255 / 22%)',
-    zeroStroke: 'rgb(255 255 255 / 24%)',
-    centerStroke: 'rgb(255 255 255 / 35%)',
-    gtLabelFill: 'rgb(255 255 255 / 55%)',
-    predLabelFill: 'rgb(255 255 255 / 40%)',
-    collisionBg: 'rgb(12 12 16 / 80%)'
-  },
-  timeline: {
-    background: '#1a1a1a',
-    padding: 14,
-    trackHeight: 2,
-    knobSize: 12,
-    knobBorder: '#5c5c5c',
-    knobBorderActive: '#999',
-    trackBg: '#3d3d3d',
-    trackFill: '#2563eb',
-    bufferFill: 'rgba(37,99,235,0.22)',
-    tickMajorColor: '#5c5c5c',
-    tickMinorColor: '#444',
-    tickLabelColor: '#7a7a7a',
-    textPrimary: '#ccc',
-    textSecondary: '#7a7a7a',
-    btnColor: '#7a7a7a',
-    btnHoverColor: '#ccc',
-    borderColor: '#333'
-  }
-}
-
-export const LIGHT_TOKENS: ThemeTokens = {
+// SVG/Canvas 调色板：深色文字 + 浅色背景
+export const svgTokens: SvgTokens = {
   chart: {
     chartBg: 'rgb(0 0 0 / 3%)',
     frameStroke: 'rgb(0 0 0 / 45%)',
@@ -239,16 +218,4 @@ export const LIGHT_TOKENS: ThemeTokens = {
     btnHoverColor: '#282e40',
     borderColor: '#c8cad4'
   }
-}
-
-export const ThemeTokensContext = createContext<ThemeTokens>(DARK_TOKENS)
-
-export function useThemeTokens(): ThemeTokens {
-  return useContext(ThemeTokensContext)
-}
-
-export function ThemeTokensProvider({ children }: { children: ReactNode }) {
-  const { theme } = useTheme()
-  const tokens = useMemo(() => (theme === 'dark' ? DARK_TOKENS : LIGHT_TOKENS), [theme])
-  return <ThemeTokensContext.Provider value={tokens}>{children}</ThemeTokensContext.Provider>
 }

@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react'
 import { scaleLinear, area, line, curveMonotoneX } from 'd3'
 import { useSceneStoreApi } from '../../context'
-import { useThemeTokens } from '../../styleConfig'
+import { svgTokens } from '../../styleConfig'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, arrayMax, arrayMin, makeXInvert, seekOnClick } from './chartUtils'
 import styles from '../StatisticsPanel.module.css'
@@ -40,7 +40,7 @@ interface EgoStateChartProps {
 
 export function EgoStateChart({ egoSpeed, egoAcceleration, frameCount }: EgoStateChartProps) {
   const store = useSceneStoreApi()
-  const { chart: palette } = useThemeTokens()
+  const { chart: palette } = svgTokens
 
   const {
     speedAreaPath,

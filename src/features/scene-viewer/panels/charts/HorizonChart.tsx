@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { select, scaleLinear, area, curveMonotoneX, interpolateRgb } from 'd3'
 import { useSceneStoreApi } from '../../context'
-import { useThemeTokens } from '../../styleConfig'
+import { svgTokens } from '../../styleConfig'
 import { FrameCursor } from './FrameCursor'
 import { ML, PLOT_W, SVG_W, makeXInvert, seekOnClick } from './chartUtils'
 import styles from '../StatisticsPanel.module.css'
@@ -39,7 +39,7 @@ export function HorizonChart({
   markers
 }: HorizonChartProps) {
   const store = useSceneStoreApi()
-  const { chart: palette } = useThemeTokens()
+  const { chart: palette } = svgTokens
 
   // D3 manages all SVG content inside this <g>.
   const chartRef = useRef<SVGGElement>(null)
