@@ -5,7 +5,6 @@ import { Html } from '@react-three/drei'
 import { useSceneStore, useSceneStoreApi } from '../context'
 import { getObjectColor } from '../styleConfig'
 import type { CuboidPayload } from '../types'
-import styles from './SelectedObjectIcon.module.css'
 
 const CUBOID_STREAM = '/gt/objects/bounds'
 
@@ -57,7 +56,7 @@ function IconInner({ trackId, classId, color }: IconInnerProps) {
   return (
     <group ref={groupRef}>
       <Html center distanceFactor={60} zIndexRange={[20, 0]}>
-        <div className={styles.icon}>
+        <div className='pointer-events-none flex items-center justify-center rounded-md border border-[rgb(255_255_255/18%)] bg-[rgb(10_10_18/82%)] p-[5px] backdrop-blur-[4px]'>
           <svg
             viewBox='0 0 16 16'
             width='18'
@@ -67,12 +66,12 @@ function IconInner({ trackId, classId, color }: IconInnerProps) {
             strokeWidth='1.5'
             strokeLinecap='round'
             strokeLinejoin='round'
-            className={styles.svgIcon}
+            className='block shrink-0'
           >
             <path d={iconPath} />
           </svg>
         </div>
-        <div className={styles.arrow} />
+        <div className='pointer-events-none mx-auto h-0 w-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-[rgb(10_10_18/82%)]' />
       </Html>
     </group>
   )
