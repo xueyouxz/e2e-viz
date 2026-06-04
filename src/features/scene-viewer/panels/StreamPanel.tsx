@@ -1,7 +1,26 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useSceneStore } from '../context'
 import type { StreamMeta } from '../types'
-import styles from './StreamPanel.module.css'
+
+const cls = {
+  panel:
+    'absolute top-0 right-0 z-10 flex h-full w-[220px] flex-col overflow-hidden border-l border-app-border bg-app-panel-bg-solid',
+  header: 'flex shrink-0 items-center justify-between border-b border-app-border px-3 py-2.5',
+  title: 'text-[11px] font-semibold tracking-[0.08em] text-app-text-label uppercase',
+  count: 'ml-1 text-[10px] font-normal text-app-text-faint',
+  closeBtn:
+    'flex cursor-pointer items-center border-0 bg-transparent px-0.5 text-[18px] leading-none text-app-text-dim hover:text-app-text-strong',
+  tree: 'flex-1 overflow-x-hidden overflow-y-auto py-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-app-scrollbar [&::-webkit-scrollbar-track]:bg-transparent',
+  folderRow:
+    'flex min-h-[26px] cursor-pointer items-center gap-[5px] px-2 text-[12px] text-app-text-dim select-none hover:bg-app-row-hover hover:text-app-text-primary',
+  folderName: 'flex-1 truncate',
+  streamRow:
+    'group flex min-h-[24px] items-center gap-1.5 px-2 text-[12px] text-app-text-primary hover:bg-app-row-hover',
+  typeIcon: 'flex shrink-0 items-center',
+  streamName: 'flex-1 truncate',
+  visBtn:
+    'flex shrink-0 cursor-pointer items-center border-0 bg-transparent p-0.5 group-hover:visible hover:text-app-text-strong'
+}
 
 // ── Tree types ────────────────────────────────────────────────────────────────
 
@@ -216,16 +235,16 @@ interface StreamRowProps {
 
 function StreamRow({ leaf, depth, visible, toggleable, onToggle }: StreamRowProps) {
   return (
-    <div className={styles.streamRow} style={{ paddingLeft: 8 + depth * 14 }}>
-      <span className={styles.typeIcon}>
+    <div className={cls.streamRow} style={{ paddingLeft: 8 + depth * 14 }}>
+      <span className={cls.typeIcon}>
         <TypeIcon type={leaf.meta.type} />
       </span>
-      <span className={`${styles.streamName}${!visible ? ` ${styles.dimmed}` : ''}`}>
+      <span className={`${cls.streamName}${!visible ? ' text-app-text-faint' : ''}`}>
         {leaf.name}
       </span>
       {toggleable && (
         <button
-          className={`${styles.visBtn}${!visible ? ` ${styles.visBtnOff}` : ''}`}
+          className={`${cls.visBtn} ${visible ? 'invisible text-app-text-label' : 'visible text-app-text-ghost'}`}
           onClick={() => onToggle(leaf.path)}
           title={visible ? 'Hide layer' : 'Show layer'}
         >
@@ -246,13 +265,13 @@ interface FolderRowProps {
 function FolderRow({ folder, depth, expanded, onToggle }: FolderRowProps) {
   return (
     <div
-      className={styles.folderRow}
+      className={cls.folderRow}
       style={{ paddingLeft: 8 + depth * 14 }}
       onClick={() => onToggle(folder.path)}
     >
       <ChevronIcon expanded={expanded} />
       <FolderIcon />
-      <span className={styles.folderName}>{folder.name}</span>
+      <span className={cls.folderName}>{folder.name}</span>
     </div>
   )
 }
@@ -333,17 +352,17 @@ export function StreamPanel({ onClose }: StreamPanelProps) {
   }, [])
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.header}>
-        <span className={styles.title}>
+    <div className={cls.panel}>
+      <div className={cls.header}>
+        <span className={cls.title}>
           Streams
-          <span className={styles.count}>({streamCount})</span>
+          <span className={cls.count}>({streamCount})</span>
         </span>
-        <button className={styles.closeBtn} onClick={onClose} title='Collapse panel'>
+        <button className={cls.closeBtn} onClick={onClose} title='Collapse panel'>
           ×
         </button>
       </div>
-      <div className={styles.tree}>
+      <div className={cls.tree}>
         {tree.map(node => (
           <NodeView
             key={node.path}
