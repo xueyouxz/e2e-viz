@@ -15,6 +15,8 @@ public/data/
 # Deployment credentials.
 secrets/
 .env
+.ossutil_checkpoint/
+ossutil_output/
 
 # Editor and OS files
 .DS_Store
