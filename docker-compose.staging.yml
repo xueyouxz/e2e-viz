@@ -1,23 +1,60 @@
-# Staging environment — mirrors production but on port 3002.
-#
-# Server-side one-time setup (run once manually via SSH):
-#   mkdir -p /opt/e2e-viz-staging /srv/e2e-viz-staging/data
-#   cp docker-compose.staging.yml /opt/e2e-viz-staging/docker-compose.yml
-#
-# BaoTa panel: add site staging.e2eval.top → reverse proxy 127.0.0.1:3002
 services:
   app:
     image: ghcr.io/xueyouxz/e2e-viz:develop
+    command: ["nginx", "-g", "daemon off;"]
     ports:
       - "127.0.0.1:3002:80"
-    volumes:
-      - /srv/e2e-viz-staging/data:/usr/share/nginx/html/data:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    secrets:
+      - basic_auth_users
     restart: unless-stopped
     pull_policy: always
-    deploy:
-      resources:
-        limits:
-          memory: 128m
-          cpus: '0.25'
-        reservations:
-          memory: 32m
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    image: ghcr.io/xueyouxz/e2e-viz:develop
+    command: ["node", "/app/server/index.mjs"]
+    user: node
+    expose:
+      - "4000"
+    environment:
+      OSS_REGION: ${OSS_REGION:-oss-cn-shanghai}
+      OSS_BUCKET: ${OSS_BUCKET:-e2e-viz-private}
+      OSS_PREFIX: ${OSS_PREFIX:-e2e-viz/data/}
+      OSS_INTERNAL: "true"
+      OSS_ACCESS_KEY_ID_FILE: /run/secrets/oss_access_key_id
+      OSS_ACCESS_KEY_SECRET_FILE: /run/secrets/oss_access_key_secret
+      DAILY_REQUEST_LIMIT: ${DAILY_REQUEST_LIMIT:-20000}
+      DAILY_TRANSFER_LIMIT_BYTES: ${DAILY_TRANSFER_LIMIT_BYTES:-10737418240}
+      BUDGET_STATE_FILE: /app/state/daily-budget.json
+    secrets:
+      - oss_access_key_id
+      - oss_access_key_secret
+    restart: unless-stopped
+    pull_policy: always
+    read_only: true
+    volumes:
+      - budget_state:/app/state
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:4000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+secrets:
+  basic_auth_users:
+    file: ./secrets/htpasswd
+  oss_access_key_id:
+    file: ./secrets/oss_access_key_id
+  oss_access_key_secret:
+    file: ./secrets/oss_access_key_secret
+
+volumes:
+  budget_state:

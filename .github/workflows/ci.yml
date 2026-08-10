@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  DEPLOY_HEALTH_URL: http://127.0.0.1:3001/
+  DEPLOY_HEALTH_URL: http://127.0.0.1:3001/health
   # Force all actions to run on Node.js 24 runtime (required from 2026-06-02)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -149,10 +149,12 @@ jobs:
             services:
               app:
                 image: ${IMAGE_REF}
+              api:
+                image: ${IMAGE_REF}
             EOF
 
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" pull app
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" up -d app
+            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" pull app api
+            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" up -d api app
 
             healthcheck() {
               if command -v curl >/dev/null 2>&1; then
@@ -177,7 +179,7 @@ jobs:
 
             echo "::error::Health check failed after 30 attempts."
             docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" ps
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" logs --tail=100 app
+            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" logs --tail=100 app api
 
             # Roll back to the previous image if one was recorded.
             if [ -n "${PREV_IMAGE}" ] && [ "${PREV_IMAGE}" != "${IMAGE_REF}" ]; then
@@ -186,8 +188,10 @@ jobs:
             services:
               app:
                 image: ${PREV_IMAGE}
+              api:
+                image: ${PREV_IMAGE}
             EOF
-              docker compose -f "${COMPOSE_BASE}" -f "${ROLLBACK_FILE}" up -d app
+              docker compose -f "${COMPOSE_BASE}" -f "${ROLLBACK_FILE}" up -d api app
               echo "Rollback complete."
             fi
             exit 1

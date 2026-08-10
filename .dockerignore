@@ -8,3 +8,7 @@ e2e
 *.py
 playwright-report
 test-results
+public/data
+coverage
+.env*
+secrets

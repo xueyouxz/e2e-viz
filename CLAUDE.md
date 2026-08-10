@@ -16,7 +16,7 @@ pnpm test         # vitest run (single pass)
 pnpm test:watch   # vitest (watch mode)
 pnpm test:coverage
 pnpm size         # bundle size check (requires prior pnpm build)
-pnpm sync:data    # interactive data sync to remote server (public/data/ → /srv/e2e-viz/data/)
+pnpm sync:data    # upload public/data + nusviz-val.zip to private OSS with ossutil
 ```
 
 Run a single test file:

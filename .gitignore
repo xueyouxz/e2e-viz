@@ -12,6 +12,10 @@ dist-ssr
 # Large copied runtime data.
 public/data/
 
+# Deployment credentials.
+secrets/
+.env
+
 # Editor and OS files
 .DS_Store
 .idea
