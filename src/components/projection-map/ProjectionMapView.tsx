@@ -9,6 +9,7 @@ import {
 } from 'react'
 import * as d3 from 'd3'
 import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
+import { glyphImageLoader, glyphImageUrl } from '@/lib/glyphImageLoader'
 import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
 const cls = {
@@ -86,9 +87,7 @@ const POINT_RADIUS = 2
 
 // glyph 图片尺寸（像素）；CELL_SIZE 决定同一缩放级别下相邻 glyph 的最小间距
 const MAP_GLYPH_SIZE = 50
-const CELL_SIZE = 70
-
-const GLYPH_BASE = '/data/glyphs/'
+const CELL_SIZE = 80
 
 // matplotlib tab10 调色板的 C0/C1，学术图表标准色
 const SPLIT_COLORS: Record<SplitName, string> = { train: '#1f77b4', val: '#d62728' }
@@ -316,6 +315,15 @@ export function ProjectionMapView({
   // 无需等待 React 状态更新
   const zoomRafRef = useRef<number | null>(null) // 待执行的 rAF id，用于去抖
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null) // D3 zoom 实例
+  const glyphLoadControllersRef = useRef(new Map<string, AbortController>())
+
+  useEffect(
+    () => () => {
+      for (const controller of glyphLoadControllersRef.current.values()) controller.abort()
+      glyphLoadControllersRef.current.clear()
+    },
+    []
+  )
 
   // ─── "永远最新" ref 模式 ─────────────────────────────────────────────────────
   //
@@ -555,10 +563,17 @@ export function ProjectionMapView({
     const joined = d3
       .select(glyphGroupRef.current)
       .selectAll<SVGGElement, ProjectionMapPoint>('g.glyph')
-      .data(culledGlyphPoints, d => d.scene_name)
+      .data<ProjectionMapPoint>(culledGlyphPoints, d => d.scene_name)
 
     // 移除视口外或已切换 LOD 的 glyph
-    joined.exit().remove()
+    joined
+      .exit()
+      .each(d => {
+        const sceneName = (d as ProjectionMapPoint).scene_name
+        glyphLoadControllersRef.current.get(sceneName)?.abort()
+        glyphLoadControllersRef.current.delete(sceneName)
+      })
+      .remove()
 
     const entered = joined
       .enter()
@@ -609,9 +624,8 @@ export function ProjectionMapView({
           .attr('transform', 'translate(0, 0) scale(1) translate(0, 0)')
       })
 
-    entered
+    const enteredImages = entered
       .append('image')
-      .attr('href', d => `${GLYPH_BASE}${d.scene_name}.webp`)
       .attr('width', MAP_GLYPH_SIZE)
       .attr('height', MAP_GLYPH_SIZE)
       .attr('transform', 'translate(0, 0) scale(1) translate(0, 0)')
@@ -620,6 +634,29 @@ export function ProjectionMapView({
         // glyph 文件缺失时隐藏整个 <g>，让网格格子保持空白而非显示破损图标
         d3.select(this.parentNode as SVGGElement).attr('display', 'none')
       })
+
+    enteredImages.each(function (d) {
+      const image = d3.select(this)
+      const group = this.parentNode as SVGGElement
+      const controller = new AbortController()
+      glyphLoadControllersRef.current.set(d.scene_name, controller)
+      void glyphImageLoader
+        .load(glyphImageUrl(d.scene_name), { signal: controller.signal })
+        .then(
+          objectUrl => {
+            if (!image.node()?.isConnected) return
+            image.attr('href', objectUrl)
+          },
+          () => {
+            if (group.isConnected) d3.select(group).attr('display', 'none')
+          }
+        )
+        .finally(() => {
+          if (glyphLoadControllersRef.current.get(d.scene_name) === controller) {
+            glyphLoadControllersRef.current.delete(d.scene_name)
+          }
+        })
+    })
 
     // update 节点不加过渡动画：
     // zoom 回调每帧直接写 transform，若同时存在 D3 transition，

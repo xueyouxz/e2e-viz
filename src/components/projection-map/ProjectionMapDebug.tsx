@@ -42,7 +42,7 @@ const VIEWBOX_WIDTH = 1280
 const VIEWBOX_HEIGHT = 760
 const CHART_PADDING = 18
 const POINT_RADIUS = 4
-const CELL_SIZE = 70
+const CELL_SIZE = 80
 
 const SPLIT_COLORS: Record<SplitName, string> = { train: '#1f77b4', val: '#d62728' }
 
