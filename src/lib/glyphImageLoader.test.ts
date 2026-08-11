@@ -10,7 +10,12 @@ function deferredResponse() {
 }
 
 function imageResponse(body = 'image'): Response {
-  return new Response(new Blob([body], { type: 'image/webp' }), { status: 200 })
+  const blob = new Blob([body], { type: 'image/webp' })
+  return { ok: true, status: 200, blob: () => Promise.resolve(blob) } as Response
+}
+
+function errorResponse(status: number): Response {
+  return { ok: false, status, blob: () => Promise.resolve(new Blob()) } as Response
 }
 
 describe('GlyphImageLoader', () => {
@@ -64,7 +69,7 @@ describe('GlyphImageLoader', () => {
   it('retries temporary HTTP failures with exponential backoff', async () => {
     const fetchImage = vi
       .fn<() => Promise<Response>>()
-      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(errorResponse(503))
       .mockResolvedValueOnce(imageResponse())
     const wait = vi.fn<(delayMs: number, signal?: AbortSignal) => Promise<void>>(() =>
       Promise.resolve()
@@ -111,7 +116,7 @@ describe('GlyphImageLoader', () => {
   })
 
   it('does not retry or repeatedly request a missing image', async () => {
-    const fetchImage = vi.fn(() => Promise.resolve(new Response(null, { status: 404 })))
+    const fetchImage = vi.fn(() => Promise.resolve(errorResponse(404)))
     const wait = vi.fn(() => Promise.resolve())
     const loader = new GlyphImageLoader({
       minStartIntervalMs: 0,
