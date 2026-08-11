@@ -7,8 +7,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    secrets:
-      - basic_auth_users
     restart: unless-stopped
     pull_policy: always
     security_opt:
@@ -68,8 +66,6 @@ services:
           memory: 64m
 
 secrets:
-  basic_auth_users:
-    file: ./secrets/htpasswd
   oss_access_key_id:
     file: ./secrets/oss_access_key_id
   oss_access_key_secret:
