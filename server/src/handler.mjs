@@ -144,8 +144,10 @@ export function createRequestHandler({ ossClient, config, budget, logger = conso
       const status = statusFromOssError(error)
       if (status >= 500) {
         logger.error('OSS request failed', {
+          name: error?.name,
+          message: error?.message,
           code: error?.code,
-          status: error?.status,
+          status: error?.status ?? error?.statusCode,
           requestId: error?.requestId
         })
       }

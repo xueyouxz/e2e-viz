@@ -53,7 +53,7 @@ function applyGlyphFilter(g: SVGGElement): void {
 type ProjectionMapViewProps = {
   points: ProjectionMapPoint[]
   selectedScenes: ProjectionMapPoint[]
-  onGlyphClick?: (sceneName: string) => void
+  onGlyphClick?: (scene: ProjectionMapPoint) => void
   onSelectionChange?: (scenes: ProjectionMapPoint[]) => void
 }
 
@@ -582,7 +582,7 @@ export function ProjectionMapView({
       .attr('transform', toTranslate)
       .style('pointer-events', 'all')
       .on('click', (_event, d) => {
-        onGlyphClickRef.current?.(d.scene_name)
+        onGlyphClickRef.current?.(d)
       })
       // raise() 将 hover 的 glyph 移到兄弟节点最后（SVG 画家算法），
       // 使其绘制在最顶层，避免被相邻 glyph 遮挡。

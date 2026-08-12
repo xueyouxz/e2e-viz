@@ -19,6 +19,44 @@ function errorResponse(status: number): Response {
 }
 
 describe('GlyphImageLoader', () => {
+  it('uses the production concurrency and start interval defaults', async () => {
+    const responses = Array.from({ length: 13 }, deferredResponse)
+    let now = 0
+    let active = 0
+    let maxActive = 0
+    const starts: number[] = []
+    const wait = vi.fn(async (delayMs: number) => {
+      now += delayMs
+    })
+    const fetchImage = vi.fn(() => {
+      const response = responses[fetchImage.mock.calls.length - 1]
+      starts.push(now)
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      return response.promise.finally(() => {
+        active -= 1
+      })
+    })
+    const loader = new GlyphImageLoader({
+      fetchImage,
+      wait,
+      now: () => now,
+      createObjectUrl: () => 'blob:image'
+    })
+
+    const requests = responses.map((_, index) => loader.load(`/glyph-${index}.webp`))
+    await vi.waitFor(() => expect(fetchImage).toHaveBeenCalledTimes(12))
+    expect(maxActive).toBe(12)
+    expect(starts).toEqual(Array.from({ length: 12 }, (_, index) => index * 20))
+
+    responses[0].resolve(imageResponse())
+    await vi.waitFor(() => expect(fetchImage).toHaveBeenCalledTimes(13))
+    responses.slice(1).forEach(response => response.resolve(imageResponse()))
+
+    await expect(Promise.all(requests)).resolves.toHaveLength(13)
+    expect(starts[12]).toBe(240)
+  })
+
   it('deduplicates URLs and limits concurrent image requests', async () => {
     const responses = [deferredResponse(), deferredResponse(), deferredResponse()]
     let active = 0

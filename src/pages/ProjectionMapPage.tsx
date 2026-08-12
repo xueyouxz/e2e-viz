@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { ProjectionMapView } from '@/components/projection-map/ProjectionMapView'
 import { SceneListPanel } from '@/components/scene-list/SceneListPanel'
 import { useProjectionMapData } from '@/hooks/useProjectionMapData'
+import { sceneAvailabilityProbe, type SceneAvailability } from '@/lib/sceneAvailability'
 import type { ProjectionMapPoint } from '@/types/scene'
 
 const SceneViewer = lazy(() => import('@/features/scene-viewer/SceneViewer'))
@@ -29,43 +30,23 @@ const cls = {
     'pointer-events-none fixed right-6 bottom-6 z-[300] animate-toast rounded-lg border border-[#f5c97a] bg-[#fef3e2] px-3.5 py-2 text-[0.8125rem] font-medium text-[#5a3e1b] shadow-[0_4px_16px_rgb(15_23_42/12%)] max-[720px]:right-4 max-[720px]:bottom-4'
 }
 
-// Cached across clicks; evicts only on page reload.
-const probeCache = new Map<string, boolean>()
-
-async function probeScene(sceneName: string): Promise<boolean> {
-  const cached = probeCache.get(sceneName)
-  if (cached !== undefined) return cached
-  try {
-    const res = await fetch(`/data/scenes/${sceneName}/message_index.json`)
-    if (!res.ok) {
-      probeCache.set(sceneName, false)
-      return false
-    }
-    // Vite dev server returns text/html (SPA fallback) for missing paths even
-    // with status 200 — check Content-Type to distinguish real JSON from that.
-    const ok = (res.headers.get('content-type') ?? '').includes('json')
-    probeCache.set(sceneName, ok)
-    return ok
-  } catch {
-    return false // network errors are not cached; may succeed on retry
-  }
-}
-
 export default function ProjectionMapPage() {
   const [selectedScenes, setSelectedScenes] = useState<ProjectionMapPoint[]>([])
   const [activeScene, setActiveScene] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ sceneName: string; availability: SceneAvailability } | null>(
+    null
+  )
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { points, loading, error } = useProjectionMapData()
 
-  const handleGlyphClick = useCallback(async (sceneName: string) => {
-    const exists = await probeScene(sceneName)
-    if (exists) {
-      setActiveScene(sceneName)
+  const handleGlyphClick = useCallback(async (scene: ProjectionMapPoint) => {
+    const availability = await sceneAvailabilityProbe.check(scene)
+    if (availability === 'available') {
+      setActiveScene(scene.scene_name)
     } else {
       if (toastTimer.current) clearTimeout(toastTimer.current)
-      setToast(sceneName)
+      setToast({ sceneName: scene.scene_name, availability })
       toastTimer.current = setTimeout(() => setToast(null), 3500)
     }
   }, [])
@@ -134,7 +115,9 @@ export default function ProjectionMapPage() {
       {/* No-data toast */}
       {toast && (
         <div className={cls.toast} role='status'>
-          {`no ${toast} data`}
+          {toast.availability === 'temporary-error'
+            ? `${toast.sceneName} 数据暂时加载失败，请重试`
+            : `${toast.sceneName} 暂无详情数据`}
         </div>
       )}
     </main>

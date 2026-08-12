@@ -79,8 +79,8 @@ export class GlyphImageLoader {
   #startGate: Promise<void> = Promise.resolve()
 
   constructor(options: GlyphImageLoaderOptions = {}) {
-    this.#maxConcurrent = Math.max(1, Math.floor(options.maxConcurrent ?? 8))
-    this.#minStartIntervalMs = Math.max(0, options.minStartIntervalMs ?? 50)
+    this.#maxConcurrent = Math.max(1, Math.floor(options.maxConcurrent ?? 12))
+    this.#minStartIntervalMs = Math.max(0, options.minStartIntervalMs ?? 20)
     this.#maxRetries = Math.max(0, Math.floor(options.maxRetries ?? 3))
     this.#retryBaseDelayMs = Math.max(0, options.retryBaseDelayMs ?? 500)
     this.#maxCached = Math.max(1, Math.floor(options.maxCached ?? 1_000))
