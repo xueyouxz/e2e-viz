@@ -2,6 +2,7 @@
 
 import * as p from '@clack/prompts'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
@@ -16,6 +17,10 @@ const glyphAtlas = join(localData, 'glyphs', glyphAtlasConfig.fileName)
 const archive = process.env.NUSVIZ_ZIP || '/Users/xyxz/Data/nusviz-val.zip'
 const bucket = process.env.OSS_BUCKET || 'e2e-viz-private'
 const prefix = (process.env.OSS_PREFIX || 'e2e-viz/data/').replace(/^\/+/, '').replace(/\/*$/, '/')
+const publicDataBaseUrl = (process.env.PUBLIC_DATA_BASE_URL || 'https://e2eval.top/data/').replace(
+  /\/*$/,
+  '/'
+)
 const DEFAULT_ENDPOINT = 'https://oss-cn-shanghai.aliyuncs.com'
 const endpoint = resolveEndpoint(process.env.OSS_ENDPOINT)
 const configFile = process.env.OSSUTIL_CONFIG_FILE || join(homedir(), '.ossutilconfig')
@@ -35,6 +40,10 @@ export function formatBytes(bytes) {
 
 export function resolveEndpoint(value) {
   return value?.trim() || DEFAULT_ENDPOINT
+}
+
+export function etagMatchesMd5(etag, expectedMd5) {
+  return etag?.replaceAll('"', '').toLowerCase() === expectedMd5.toLowerCase()
 }
 
 export async function collectDirectoryStats(directory) {
@@ -107,11 +116,20 @@ async function preflight() {
 }
 
 async function verifyRemoteGlyphAtlas() {
-  await runCommand('ossutil', [
-    'stat',
-    `oss://${bucket}/${prefix}glyphs/${glyphAtlasConfig.fileName}`,
-    ...ossutilOptions()
-  ])
+  const response = await fetch(`${publicDataBaseUrl}glyphs/${glyphAtlasConfig.fileName}`, {
+    method: 'HEAD',
+    cache: 'no-store'
+  })
+  if (!response.ok)
+    throw new Error(`Remote glyph atlas verification failed: HTTP ${response.status}`)
+
+  const expectedMd5 = createHash('md5').update(readFileSync(glyphAtlas)).digest('hex')
+  const etag = response.headers.get('etag')
+  if (!etagMatchesMd5(etag, expectedMd5)) {
+    throw new Error(
+      `Remote glyph atlas ETag mismatch: expected ${expectedMd5}, got ${etag ?? 'none'}`
+    )
+  }
 }
 
 async function warnAboutConfigPermissions() {

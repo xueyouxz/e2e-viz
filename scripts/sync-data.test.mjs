@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   buildOssutilOptions,
   collectDirectoryStats,
+  etagMatchesMd5,
   formatBytes,
   resolveEndpoint,
   runCommand
@@ -27,6 +28,14 @@ test('always passes a non-empty endpoint and optional config file to ossutil', (
     }),
     ['-e', 'https://oss-cn-shanghai.aliyuncs.com', '-c', '/tmp/ossutil.conf']
   )
+})
+
+test('compares the public OSS ETag with the local atlas MD5', () => {
+  assert.equal(
+    etagMatchesMd5('"07A1AA0901FA17D6E149D32729AC2158"', '07a1aa0901fa17d6e149d32729ac2158'),
+    true
+  )
+  assert.equal(etagMatchesMd5('"different"', '07a1aa0901fa17d6e149d32729ac2158'), false)
 })
 
 test('propagates command failures to stop the upload', async () => {
