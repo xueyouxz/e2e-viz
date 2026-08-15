@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs'
-import { readFile, readdir, rename, rm } from 'node:fs/promises'
+import { existsSync, readFileSync } from 'node:fs'
+import { readFile, readdir, rename, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
@@ -15,9 +15,8 @@ const PROJECTION_DATA = path.join(
   'projection-map',
   'dimension_reduction.json'
 )
-const ATLAS_CONFIG = JSON.parse(
-  readFileSync(path.join(REPO_ROOT, 'glyph-atlas.config.json'), 'utf8')
-)
+const ATLAS_CONFIG_PATH = path.join(REPO_ROOT, 'glyph-atlas.config.json')
+const ATLAS_CONFIG = JSON.parse(readFileSync(ATLAS_CONFIG_PATH, 'utf8'))
 
 export function parseSceneIndex(fileName) {
   const match = /^scene-(\d{4})\.webp$/.exec(fileName)
@@ -65,6 +64,20 @@ export function validateAtlasCoverage(plan, expectedSceneNames) {
   }
 }
 
+export function assertAtlasMetadata(metadata, layout = ATLAS_CONFIG) {
+  const expectedWidth = layout.columns * layout.cellSize
+  const expectedHeight = layout.rows * layout.cellSize
+  if (
+    metadata.format !== 'webp' ||
+    metadata.width !== expectedWidth ||
+    metadata.height !== expectedHeight
+  ) {
+    throw new Error(
+      `Invalid glyph atlas: expected WebP ${expectedWidth}×${expectedHeight}, got ${metadata.format ?? 'unknown'} ${metadata.width ?? '?'}×${metadata.height ?? '?'}`
+    )
+  }
+}
+
 async function mapWithConcurrency(items, concurrency, mapper) {
   const results = new Array(items.length)
   let nextIndex = 0
@@ -77,6 +90,49 @@ async function mapWithConcurrency(items, concurrency, mapper) {
   })
   await Promise.all(workers)
   return results
+}
+
+export async function validateGlyphAtlasArtifact({
+  glyphDirectory = GLYPH_DIRECTORY,
+  projectionDataPath = PROJECTION_DATA,
+  layout = ATLAS_CONFIG
+} = {}) {
+  const fileNames = await readdir(glyphDirectory)
+  const plan = createAtlasPlan(fileNames, layout)
+  if (plan.length === 0) throw new Error(`No scene glyphs found in ${glyphDirectory}`)
+
+  const projectionData = JSON.parse(await readFile(projectionDataPath, 'utf8'))
+  validateAtlasCoverage(
+    plan,
+    projectionData.scenes.map(scene => scene.scene_name)
+  )
+
+  const atlasPath = path.join(glyphDirectory, layout.fileName)
+  const metadata = await sharp(atlasPath).metadata()
+  assertAtlasMetadata(metadata, layout)
+
+  const [atlasStats, projectionStats, configStats, sourceStats] = await Promise.all([
+    stat(atlasPath),
+    stat(projectionDataPath),
+    stat(ATLAS_CONFIG_PATH),
+    Promise.all(plan.map(item => stat(path.join(glyphDirectory, item.fileName))))
+  ])
+  const latestInputMtime = Math.max(
+    projectionStats.mtimeMs,
+    configStats.mtimeMs,
+    ...sourceStats.map(item => item.mtimeMs)
+  )
+  if (atlasStats.size === 0 || atlasStats.mtimeMs < latestInputMtime) {
+    throw new Error(`Glyph atlas is empty or stale: ${atlasPath}. Run pnpm build:glyph-atlas.`)
+  }
+
+  return {
+    atlasPath,
+    scenes: plan.length,
+    bytes: atlasStats.size,
+    width: metadata.width,
+    height: metadata.height
+  }
 }
 
 export async function buildGlyphAtlas({
@@ -128,11 +184,33 @@ export async function buildGlyphAtlas({
   }
 }
 
+export async function ensureGlyphAtlasArtifact() {
+  if (!existsSync(GLYPH_DIRECTORY)) return { skipped: true }
+  try {
+    return { ...(await validateGlyphAtlasArtifact()), built: false, skipped: false }
+  } catch {
+    return { ...(await buildGlyphAtlas()), built: true, skipped: false }
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  buildGlyphAtlas()
+  const validateOnly = process.argv.includes('--validate')
+  const ensureIfPresent = process.argv.includes('--ensure-if-present')
+  const operation = ensureIfPresent
+    ? ensureGlyphAtlasArtifact()
+    : validateOnly
+      ? validateGlyphAtlasArtifact()
+      : buildGlyphAtlas()
+  operation
     .then(result => {
+      if (result.skipped) {
+        console.log('Glyph atlas skipped: public/data/glyphs is not present')
+        return
+      }
+      const outputPath = result.atlasPath ?? result.outputPath
+      const verb = validateOnly || result.built === false ? 'validated' : 'built'
       console.log(
-        `Glyph atlas: ${result.scenes} scenes, ${result.width}×${result.height}px -> ${result.outputPath}`
+        `Glyph atlas ${verb}: ${result.scenes} scenes, ${result.width}×${result.height}px -> ${outputPath}`
       )
     })
     .catch(error => {

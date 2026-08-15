@@ -7,6 +7,7 @@ import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { validateGlyphAtlasArtifact } from './build_glyph_atlas.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const localData = join(root, 'public', 'data')
@@ -105,6 +106,14 @@ async function preflight() {
   ])
 }
 
+async function verifyRemoteGlyphAtlas() {
+  await runCommand('ossutil', [
+    'stat',
+    `oss://${bucket}/${prefix}glyphs/${glyphAtlasConfig.fileName}`,
+    ...ossutilOptions()
+  ])
+}
+
 async function warnAboutConfigPermissions() {
   if (!existsSync(configFile)) return
   const mode = (await stat(configFile)).mode & 0o777
@@ -115,9 +124,8 @@ async function warnAboutConfigPermissions() {
 
 async function main() {
   if (!existsSync(localData)) throw new Error(`Local data directory not found: ${localData}`)
-  if (!existsSync(glyphAtlas)) {
-    throw new Error(`Glyph atlas not found: ${glyphAtlas}. Run pnpm build:glyph-atlas first.`)
-  }
+  if (!existsSync(glyphAtlas)) throw new Error(`Glyph atlas not found: ${glyphAtlas}`)
+  await validateGlyphAtlasArtifact()
   if (!existsSync(archive)) throw new Error(`Scene archive not found: ${archive}`)
 
   p.intro('e2e-viz · 上传数据到私有 OSS')
@@ -177,6 +185,7 @@ async function main() {
       `[4/5] 上传项目数据：${projectStats.files} 个文件，${formatBytes(projectStats.bytes)}`
     )
     await uploadDirectory(localData, `oss://${bucket}/${prefix}`)
+    await verifyRemoteGlyphAtlas()
     p.log.success('项目数据上传完成')
 
     p.log.info(`[5/5] 上传场景数据：${sceneStats.files} 个文件，${formatBytes(sceneStats.bytes)}`)

@@ -20,7 +20,10 @@ pnpm render:glyphs
 
 Local development data is read from `public/data/`, with `public/ego.glb` used by the scene viewer.
 `pnpm render:glyphs` renders the individual source glyphs and then packs them into the single
-`public/data/glyphs/glyph-atlas-v1.webp` runtime atlas.
+`public/data/glyphs/glyph-atlas-v1.webp` runtime atlas. The projection map and selected-scenes
+panel both crop thumbnails from that shared atlas, so glyph display uses one HTTP request.
+`pnpm build` validates this atlas and rebuilds it when local glyph data is present; CI/Docker skip
+that data step because production data is served from OSS and excluded from the image build context.
 
 ## Production architecture
 
@@ -54,5 +57,9 @@ upload `public/data/` and
 
 ```bash
 pnpm build:glyph-atlas
+pnpm validate:glyph-atlas
 pnpm sync:data
 ```
+
+`sync:data` also validates atlas coverage, format, dimensions and freshness before upload, then
+checks that the uploaded atlas exists in OSS.

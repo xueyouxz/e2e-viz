@@ -30,6 +30,20 @@ describe('hitTestGlyph', () => {
     expect(hitTestGlyph(points, 103, 103, 50)?.sceneName).toBe('scene-0001')
     expect(hitTestGlyph(points, 200, 200, 50)).toBeNull()
   })
+
+  it('keeps the hovered glyph active across its enlarged edge', () => {
+    const points = [{ sceneName: 'scene-0000', x: 100, y: 100, selected: false }]
+    expect(hitTestGlyph(points, 128, 100, 50, 'scene-0000')?.sceneName).toBe('scene-0000')
+    expect(hitTestGlyph(points, 130, 100, 50, 'scene-0000')).toBeNull()
+  })
+
+  it('hits the visually raised hovered glyph before overlapping points', () => {
+    const points = [
+      { sceneName: 'scene-0000', x: 100, y: 100, selected: false },
+      { sceneName: 'scene-0001', x: 105, y: 105, selected: false }
+    ]
+    expect(hitTestGlyph(points, 103, 103, 50, 'scene-0000')?.sceneName).toBe('scene-0000')
+  })
 })
 
 describe('drawGlyphCanvas', () => {

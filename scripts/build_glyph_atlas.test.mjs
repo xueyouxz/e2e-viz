@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  assertAtlasMetadata,
   atlasPlacement,
   createAtlasPlan,
   parseSceneIndex,
@@ -36,4 +37,16 @@ test('rejects an atlas that does not cover every projection scene', () => {
   const plan = createAtlasPlan(['scene-0000.webp'], layout)
   assert.doesNotThrow(() => validateAtlasCoverage(plan, ['scene-0000']))
   assert.throws(() => validateAtlasCoverage(plan, ['scene-0000', 'scene-0001']), /scene-0001/)
+})
+
+test('validates the generated atlas format and dimensions', () => {
+  assert.doesNotThrow(() => assertAtlasMetadata({ format: 'webp', width: 36, height: 24 }, layout))
+  assert.throws(
+    () => assertAtlasMetadata({ format: 'png', width: 36, height: 24 }, layout),
+    /Invalid glyph atlas/
+  )
+  assert.throws(
+    () => assertAtlasMetadata({ format: 'webp', width: 35, height: 24 }, layout),
+    /Invalid glyph atlas/
+  )
 })

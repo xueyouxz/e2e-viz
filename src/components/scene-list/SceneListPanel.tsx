@@ -1,7 +1,7 @@
 import { type CSSProperties, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { GlyphThumbnail } from '@/components/projection-map/glyph/GlyphThumbnail'
 import type { ProjectionMapPoint } from '@/types/scene'
-import { useGlyphImageUrl } from '@/hooks/useGlyphImageUrl'
 import { useScenesMeta, type SceneObjectSummary } from '@/hooks/useScenesMeta'
 
 type ObjectGroupKey = 'vehicle' | 'pedestrian' | 'movable' | 'static' | 'animal' | 'other'
@@ -116,24 +116,6 @@ type Props = {
   onClear: () => void
 }
 
-function SceneThumbnail({ sceneName }: { sceneName: string }) {
-  const imageUrl = useGlyphImageUrl(sceneName)
-
-  return (
-    <img
-      className={cls.thumb}
-      src={imageUrl}
-      alt={sceneName}
-      width={92}
-      height={92}
-      style={{ visibility: imageUrl ? 'visible' : 'hidden' }}
-      onError={event => {
-        event.currentTarget.style.visibility = 'hidden'
-      }}
-    />
-  )
-}
-
 export function SceneListPanel({ scenes, visible, onClear }: Props) {
   const listRef = useRef<HTMLUListElement>(null)
   // Triggers fetch on first scene selection; returns cached Map on subsequent renders.
@@ -183,7 +165,7 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
                   transform: `translateY(${virtualItem.start}px)`
                 }}
               >
-                <SceneThumbnail sceneName={scene.scene_name} />
+                <GlyphThumbnail className={cls.thumb} sceneName={scene.scene_name} />
                 <div className={cls.itemContent}>
                   <div className={cls.nameRow}>
                     <span className={cls.sceneName} title={scene.scene_name}>

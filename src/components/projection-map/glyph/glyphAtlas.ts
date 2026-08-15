@@ -1,4 +1,4 @@
-import atlasConfig from '../../glyph-atlas.config.json'
+import atlasConfig from '../../../../glyph-atlas.config.json'
 
 const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504])
 

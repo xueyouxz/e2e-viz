@@ -1,4 +1,5 @@
 import { glyphAtlasSourceRect } from './glyphAtlas'
+import { svgTokens } from './styleConfig'
 
 export type GlyphScreenPoint = {
   sceneName: string
@@ -42,15 +43,29 @@ type DrawGlyphCanvasOptions = {
   opacity?: number
 }
 
+const HOVER_SCALE = 1.18
+
 export function hitTestGlyph(
   points: readonly GlyphScreenPoint[],
   x: number,
   y: number,
-  glyphSize: number
+  glyphSize: number,
+  hoveredSceneName: string | null = null
 ): GlyphScreenPoint | null {
-  const half = glyphSize / 2
+  const hovered = hoveredSceneName
+    ? points.find(point => point.sceneName === hoveredSceneName)
+    : undefined
+  if (hovered) {
+    const hoverHalf = (glyphSize * HOVER_SCALE) / 2
+    if (Math.abs(x - hovered.x) <= hoverHalf && Math.abs(y - hovered.y) <= hoverHalf) {
+      return hovered
+    }
+  }
+
   for (let index = points.length - 1; index >= 0; index -= 1) {
     const point = points[index]
+    if (point === hovered) continue
+    const half = glyphSize / 2
     if (Math.abs(x - point.x) <= half && Math.abs(y - point.y) <= half) return point
   }
   return null
@@ -77,14 +92,14 @@ export function drawGlyphCanvas(
     if (!source) continue
 
     const isHovered = point.sceneName === options.hoveredSceneName
-    const size = options.glyphSize * (isHovered ? 1.18 : 1)
+    const size = options.glyphSize * (isHovered ? HOVER_SCALE : 1)
     const left = point.x - size / 2
     const top = point.y - size / 2
 
     context.save()
     context.globalAlpha = options.opacity ?? 1
     if (isHovered) {
-      context.shadowColor = 'rgb(15 23 42 / 32%)'
+      context.shadowColor = svgTokens.glyph.hoverShadow
       context.shadowBlur = 10
       context.shadowOffsetY = 3
     }
@@ -94,7 +109,7 @@ export function drawGlyphCanvas(
       context.shadowColor = 'transparent'
       context.shadowBlur = 0
       context.shadowOffsetY = 0
-      context.strokeStyle = '#f88f06'
+      context.strokeStyle = svgTokens.glyph.selectedStroke
       context.lineWidth = 2.5
       context.strokeRect(left + 1.25, top + 1.25, size - 2.5, size - 2.5)
     }

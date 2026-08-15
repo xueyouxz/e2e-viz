@@ -9,8 +9,8 @@ import {
 } from 'react'
 import * as d3 from 'd3'
 import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
-import { glyphAtlasLoader } from '@/lib/glyphAtlas'
-import { drawGlyphCanvas, hitTestGlyph, type GlyphScreenPoint } from '@/lib/glyphCanvasRenderer'
+import { glyphAtlasLoader } from './glyph/glyphAtlas'
+import { drawGlyphCanvas, hitTestGlyph, type GlyphScreenPoint } from './glyph/glyphCanvasRenderer'
 import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
 const cls = {
@@ -726,7 +726,8 @@ export function ProjectionMapView({
       }
       const [x, y] = toViewBox(svgRef.current, e.clientX, e.clientY)
       updateHoveredGlyph(
-        hitTestGlyph(glyphScreenPointsRef.current, x, y, MAP_GLYPH_SIZE)?.sceneName ?? null
+        hitTestGlyph(glyphScreenPointsRef.current, x, y, MAP_GLYPH_SIZE, hoveredGlyphRef.current)
+          ?.sceneName ?? null
       )
       return
     }
@@ -743,7 +744,13 @@ export function ProjectionMapView({
         return
       }
       const [x, y] = toViewBox(svgRef.current, e.clientX, e.clientY)
-      const hit = hitTestGlyph(glyphScreenPointsRef.current, x, y, MAP_GLYPH_SIZE)
+      const hit = hitTestGlyph(
+        glyphScreenPointsRef.current,
+        x,
+        y,
+        MAP_GLYPH_SIZE,
+        hoveredGlyphRef.current
+      )
       const scene = hit ? pointsRef.current.find(point => point.scene_name === hit.sceneName) : null
       if (scene) onGlyphClickRef.current?.(scene)
       return

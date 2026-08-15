@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/build_glyph_atlas.mjs --ensure-if-present && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
     "build:glyph-atlas": "node scripts/build_glyph_atlas.mjs",
+    "validate:glyph-atlas": "node scripts/build_glyph_atlas.mjs --validate",
     "render:glyphs": "node scripts/render_glyphs.mjs && pnpm build:glyph-atlas",
     "sync:data": "node scripts/sync-data.mjs",
     "prepare": "husky"
