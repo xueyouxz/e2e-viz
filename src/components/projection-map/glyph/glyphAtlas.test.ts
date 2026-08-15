@@ -6,6 +6,14 @@ import {
   glyphAtlasSourceRect
 } from './glyphAtlas'
 
+function response(status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    blob: vi.fn().mockResolvedValue({} as Blob)
+  } as unknown as Response
+}
+
 describe('glyphAtlasSourceRect', () => {
   it('maps the numeric scene id into a deterministic atlas slot', () => {
     expect(glyphAtlasSourceRect('scene-0000')).toEqual({ sx: 2, sy: 2, size: 100 })
@@ -22,7 +30,7 @@ describe('glyphAtlasSourceRect', () => {
 describe('GlyphAtlasLoader', () => {
   it('deduplicates concurrent callers into one atlas request and decode', async () => {
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const fetchImage = vi.fn().mockResolvedValue(new Response(new Blob(['atlas'])))
+    const fetchImage = vi.fn().mockResolvedValue(response())
     const decode = vi.fn().mockResolvedValue(bitmap)
     const loader = new GlyphAtlasLoader({ fetchImage, decode })
 
@@ -35,8 +43,8 @@ describe('GlyphAtlasLoader', () => {
   it('retries temporary upstream errors without creating parallel requests', async () => {
     const fetchImage = vi
       .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 502 }))
-      .mockResolvedValueOnce(new Response(new Blob(['atlas'])))
+      .mockResolvedValueOnce(response(502))
+      .mockResolvedValueOnce(response())
     const wait = vi.fn().mockResolvedValue(undefined)
     const loader = new GlyphAtlasLoader({
       fetchImage,
@@ -53,7 +61,7 @@ describe('GlyphAtlasLoader', () => {
 
   it('does not retry a permanent missing-atlas response', async () => {
     const loader = new GlyphAtlasLoader({
-      fetchImage: vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
+      fetchImage: vi.fn().mockResolvedValue(response(404)),
       decode: vi.fn(),
       wait: vi.fn(),
       maxRetries: 3
