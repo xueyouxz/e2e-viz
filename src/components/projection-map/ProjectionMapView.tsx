@@ -9,7 +9,8 @@ import {
 } from 'react'
 import * as d3 from 'd3'
 import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
-import { glyphImageLoader, glyphImageUrl } from '@/lib/glyphImageLoader'
+import { glyphAtlasLoader } from '@/lib/glyphAtlas'
+import { drawGlyphCanvas, hitTestGlyph, type GlyphScreenPoint } from '@/lib/glyphCanvasRenderer'
 import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
 const cls = {
@@ -20,6 +21,7 @@ const cls = {
   selectedDot: 'pointer-events-none [r:var(--sel-r,2.08)]',
   zoomLayer: '[will-change:transform]',
   glyphLayer: 'pointer-events-none',
+  glyphCanvas: 'block h-full w-full',
   lassoPath:
     'pointer-events-none [fill:color-mix(in_srgb,var(--color-accent)_10%,transparent)] [stroke:var(--color-accent)] [stroke-dasharray:6_3] [stroke-width:1.5px]',
   controlsOverlay: 'pointer-events-none absolute top-3 right-3 z-10 [&>*]:pointer-events-auto',
@@ -29,23 +31,7 @@ const cls = {
     'flex cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent px-2 py-[5px] text-app-text-dim transition-colors hover:bg-app-row-hover hover:text-app-text-primary',
   toolBtnActive:
     'flex cursor-pointer items-center justify-center rounded-[7px] border-none px-2 py-[5px] text-accent transition-colors [background:color-mix(in_srgb,var(--color-accent)_12%,transparent)] hover:text-accent hover:[background:color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
-  lassoIcon: 'h-5 w-5 fill-current',
-  glyphGroup: 'glyph cursor-pointer',
-  glyphImage: 'transition-[filter] duration-[120ms] [image-rendering:pixelated]'
-}
-
-// Glyph selection/hover styling is applied imperatively from D3 (where both
-// states are tracked) instead of via compound CSS descendant selectors. The
-// combined filter composes both states deterministically.
-const GLYPH_SELECTED_FILTER = "url('#glyph-selected-filter')"
-const GLYPH_HOVER_FILTER = 'drop-shadow(0 3px 10px rgb(15 23 42 / 32%))'
-
-function applyGlyphFilter(g: SVGGElement): void {
-  const parts: string[] = []
-  if (g.dataset.selected === 'true') parts.push(GLYPH_SELECTED_FILTER)
-  if (g.dataset.hovered === 'true') parts.push(GLYPH_HOVER_FILTER)
-  const img = g.querySelector('image')
-  if (img) img.style.filter = parts.join(' ')
+  lassoIcon: 'h-5 w-5 fill-current'
 }
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
@@ -88,6 +74,7 @@ const POINT_RADIUS = 2
 // glyph 图片尺寸（像素）；CELL_SIZE 决定同一缩放级别下相邻 glyph 的最小间距
 const MAP_GLYPH_SIZE = 50
 const CELL_SIZE = 80
+const GLYPH_CANVAS_DPR = 2
 
 // matplotlib tab10 调色板的 C0/C1，学术图表标准色
 const SPLIT_COLORS: Record<SplitName, string> = { train: '#1f77b4', val: '#d62728' }
@@ -287,8 +274,7 @@ const LassoIcon = () => (
 //    由 React 渲染 <circle>，整组由 D3 直接写 transform，不触发 React 重渲染。
 //
 // ② Glyph 层：glyph 模式的 split 始终渲染为 glyph。
-//    由 D3 数据绑定管理 <image>，放在独立的 <g ref={glyphGroupRef}>，
-//    每帧直接计算 screen 坐标写 translate，无需矩阵叠加。
+//    浏览器只加载一张 Atlas，Canvas 每帧按 scene 编号裁剪并绘制可见 glyph。
 
 export function ProjectionMapView({
   points,
@@ -301,6 +287,7 @@ export function ProjectionMapView({
 
   // lasso 选框工具是否处于激活状态（影响指针事件路由和光标样式）
   const [lassoActive, setLassoActive] = useState(false)
+  const [glyphAtlasStatus, setGlyphAtlasStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
   const activeIds = (['train', 'val'] as SplitName[]).filter(s => !scatterSplits.has(s))
 
@@ -308,22 +295,19 @@ export function ProjectionMapView({
 
   const svgRef = useRef<SVGSVGElement | null>(null) // 根 SVG，挂载 D3 zoom
   const scatterGroupRef = useRef<SVGGElement | null>(null) // 散点 <g>，接受 D3 transform
-  const glyphGroupRef = useRef<SVGGElement | null>(null) // glyph <g>，screen-space 定位
+  const glyphCanvasRef = useRef<HTMLCanvasElement | null>(null) // 单张 Atlas 的 screen-space 绘制层
   const lassoPathRef = useRef<SVGPathElement | null>(null) // lasso 选框路径，命令式更新
   const transformRef = useRef(d3.zoomIdentity) // 当前 ZoomTransform 的镜像 ref，
   // 供 D3 回调和事件处理器读取，
   // 无需等待 React 状态更新
   const zoomRafRef = useRef<number | null>(null) // 待执行的 rAF id，用于去抖
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null) // D3 zoom 实例
-  const glyphLoadControllersRef = useRef(new Map<string, AbortController>())
-
-  useEffect(
-    () => () => {
-      for (const controller of glyphLoadControllersRef.current.values()) controller.abort()
-      glyphLoadControllersRef.current.clear()
-    },
-    []
-  )
+  const glyphBitmapRef = useRef<ImageBitmap | null>(null)
+  const glyphPointsRef = useRef<ProjectionMapPoint[]>([])
+  const glyphScreenPointsRef = useRef<GlyphScreenPoint[]>([])
+  const selectedSetRef = useRef<Set<string>>(new Set())
+  const hoveredGlyphRef = useRef<string | null>(null)
+  const pointerDownRef = useRef<Vec2 | null>(null)
 
   // ─── "永远最新" ref 模式 ─────────────────────────────────────────────────────
   //
@@ -338,6 +322,39 @@ export function ProjectionMapView({
   const onSelectionChangeRef = useRef(onSelectionChange)
   const scalesRef = useRef<ScalePair | null>(null)
   const pointsRef = useRef(points)
+
+  function redrawGlyphCanvas(transform = transformRef.current): void {
+    const canvas = glyphCanvasRef.current
+    const context = canvas?.getContext('2d')
+    if (!canvas || !context) return
+
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+
+    const atlas = glyphBitmapRef.current
+    const scales = scalesRef.current
+    if (!atlas || !scales) {
+      glyphScreenPointsRef.current = []
+      return
+    }
+
+    const screenPoints = glyphPointsRef.current.map<GlyphScreenPoint>(point => ({
+      sceneName: point.scene_name,
+      x: scales.x(point.tsne_comp1) * transform.k + transform.x,
+      y: scales.y(point.tsne_comp2) * transform.k + transform.y,
+      selected: selectedSetRef.current.has(point.scene_name)
+    }))
+    glyphScreenPointsRef.current = screenPoints
+
+    context.setTransform(GLYPH_CANVAS_DPR, 0, 0, GLYPH_CANVAS_DPR, 0, 0)
+    drawGlyphCanvas(context, atlas, screenPoints, {
+      width: VIEWBOX_WIDTH,
+      height: VIEWBOX_HEIGHT,
+      glyphSize: MAP_GLYPH_SIZE,
+      hoveredSceneName: hoveredGlyphRef.current
+    })
+  }
+
   useLayoutEffect(() => {
     lassoActiveRef.current = lassoActive
     onGlyphClickRef.current = onGlyphClick
@@ -472,6 +489,35 @@ export function ProjectionMapView({
     [selectedScenes]
   )
 
+  useLayoutEffect(() => {
+    glyphPointsRef.current = culledGlyphPoints
+    selectedSetRef.current = selectedSet
+    redrawGlyphCanvas()
+  }, [culledGlyphPoints, selectedSet, scales])
+
+  useEffect(() => {
+    let mounted = true
+    void glyphAtlasLoader.load().then(
+      bitmap => {
+        if (!mounted) return
+        glyphBitmapRef.current = bitmap
+        setGlyphAtlasStatus('ready')
+        redrawGlyphCanvas()
+      },
+      error => {
+        if (!mounted) return
+        setGlyphAtlasStatus('error')
+        console.error('Glyph atlas load failed', error)
+      }
+    )
+
+    return () => {
+      mounted = false
+      glyphBitmapRef.current = null
+      glyphScreenPointsRef.current = []
+    }
+  }, [])
+
   // ─── 柱状图数据 ─────────────────────────────────────────────────────────────
 
   // 单次遍历同时统计两个 split 的选中数量，避免两次 filter
@@ -537,150 +583,6 @@ export function ProjectionMapView({
     onSelectionChangeRef.current?.(selected)
   }, [points])
 
-  // ─── D3 glyph 数据绑定（enter / update / exit）──────────────────────────────
-  //
-  // 为什么 glyph 用 D3 而不用 React 渲染？
-  // 缩放时 glyph 的 screen 坐标每帧都变，若通过 React 渲染，
-  // 每帧需要 diff 并 commit 数百个 <g> 的 transform 属性，成本极高。
-  // D3 在 zoom 回调里直接操作 DOM，完全绕过 React diff。
-  //
-  // 这个 effect 只处理 glyph 集合的增删（数据变化、split 切换、视口裁剪变化），
-  // 不负责每帧的位置更新（那部分由 zoom 回调处理）。
-  //
-  // key 函数使用 scene_name 确保 D3 能复用已有 DOM 节点而非全量重建。
-
-  useEffect(() => {
-    if (!glyphGroupRef.current) return
-
-    const { k, tx, ty } = viewport
-    const half = MAP_GLYPH_SIZE / 2
-    const toTranslate = (d: ProjectionMapPoint) => {
-      const x = scales.x(d.tsne_comp1) * k + tx - half
-      const y = scales.y(d.tsne_comp2) * k + ty - half
-      return `translate(${x},${y})`
-    }
-
-    const joined = d3
-      .select(glyphGroupRef.current)
-      .selectAll<SVGGElement, ProjectionMapPoint>('g.glyph')
-      .data<ProjectionMapPoint>(culledGlyphPoints, d => d.scene_name)
-
-    // 移除视口外或已切换 LOD 的 glyph
-    joined
-      .exit()
-      .each(d => {
-        const sceneName = (d as ProjectionMapPoint).scene_name
-        glyphLoadControllersRef.current.get(sceneName)?.abort()
-        glyphLoadControllersRef.current.delete(sceneName)
-      })
-      .remove()
-
-    const entered = joined
-      .enter()
-      .append('g')
-      .attr('class', cls.glyphGroup)
-      .attr('transform', toTranslate)
-      .style('pointer-events', 'all')
-      .on('click', (_event, d) => {
-        onGlyphClickRef.current?.(d)
-      })
-      // raise() 将 hover 的 glyph 移到兄弟节点最后（SVG 画家算法），
-      // 使其绘制在最顶层，避免被相邻 glyph 遮挡。
-      //
-      // 注意：d3.selection.raise() 本质上是 parentNode.appendChild(this)，
-      // 即使元素已是最后子节点，appendChild 仍会先将其从 DOM 中移除再插回，
-      // 产生真实 DOM 变异 → 浏览器重新触发 mouseleave（捕获丢失）→ 立即
-      // 触发 mouseenter → 再次 raise() → 无限循环，导致 CSS transition 反复重置，
-      // 视觉上表现为 glyph 频繁跳动。
-      //
-      // 修复：先检查是否已是最后子节点，仅在需要时才 raise()；
-      // 同时改用 JS class（.glyphGroupHovered）取代 CSS :hover，
-      // 因为 CSS :hover 依赖 DOM 位置状态，在 raise() 循环中同样不稳定。
-      .on('mouseenter', function () {
-        if (this.parentNode?.lastChild !== this) d3.select(this).raise()
-        this.dataset.hovered = 'true'
-        applyGlyphFilter(this)
-
-        const center = MAP_GLYPH_SIZE / 2
-        d3.select(this)
-          .select('image')
-          .interrupt()
-          .transition()
-          .duration(120)
-          .attr(
-            'transform',
-            `translate(${center}, ${center}) scale(1.18) translate(-${center}, -${center})`
-          )
-      })
-      .on('mouseleave', function () {
-        this.dataset.hovered = 'false'
-        applyGlyphFilter(this)
-
-        d3.select(this)
-          .select('image')
-          .interrupt()
-          .transition()
-          .duration(120)
-          .attr('transform', 'translate(0, 0) scale(1) translate(0, 0)')
-      })
-
-    const enteredImages = entered
-      .append('image')
-      .attr('width', MAP_GLYPH_SIZE)
-      .attr('height', MAP_GLYPH_SIZE)
-      .attr('transform', 'translate(0, 0) scale(1) translate(0, 0)')
-      .attr('class', cls.glyphImage)
-      .on('error', function () {
-        // glyph 文件缺失时隐藏整个 <g>，让网格格子保持空白而非显示破损图标
-        d3.select(this.parentNode as SVGGElement).attr('display', 'none')
-      })
-
-    enteredImages.each(function (d) {
-      const image = d3.select(this)
-      const group = this.parentNode as SVGGElement
-      const controller = new AbortController()
-      glyphLoadControllersRef.current.set(d.scene_name, controller)
-      void glyphImageLoader
-        .load(glyphImageUrl(d.scene_name), { signal: controller.signal })
-        .then(
-          objectUrl => {
-            if (!image.node()?.isConnected) return
-            image.attr('href', objectUrl)
-          },
-          () => {
-            if (group.isConnected) d3.select(group).attr('display', 'none')
-          }
-        )
-        .finally(() => {
-          if (glyphLoadControllersRef.current.get(d.scene_name) === controller) {
-            glyphLoadControllersRef.current.delete(d.scene_name)
-          }
-        })
-    })
-
-    // update 节点不加过渡动画：
-    // zoom 回调每帧直接写 transform，若同时存在 D3 transition，
-    // 两者会竞争同一属性，导致闪烁。interrupt() 终止残留过渡后直接写入。
-    joined.interrupt().attr('transform', toTranslate)
-  }, [culledGlyphPoints, snappedK, scales, viewport])
-
-  // ─── 选中状态样式同步 ──────────────────────────────────────────────────────
-  //
-  // 选中状态变化频率远高于 glyph 集合变化（用户每次点击都可能改变），
-  // 因此将其拆分为独立 effect，避免因 selectedSet 变化触发完整的 glyph join。
-  // classed() 只修改 CSS class，不重建 DOM 节点，成本极低。
-  // 注意额外依赖 culledGlyphPoints：当缩放产生新的可见节点 (enter) 时，必须重新应用选中状态。
-
-  useEffect(() => {
-    if (!glyphGroupRef.current) return
-    d3.select(glyphGroupRef.current)
-      .selectAll<SVGGElement, ProjectionMapPoint>('g.glyph')
-      .each(function (d) {
-        this.dataset.selected = selectedSet.has(d.scene_name) ? 'true' : 'false'
-        applyGlyphFilter(this)
-      })
-  }, [selectedSet, culledGlyphPoints])
-
   // ─── D3 缩放行为初始化 ──────────────────────────────────────────────────────
   //
   // 仅在挂载时执行一次（deps = []），zoom 实例存入 zoomRef 供后续使用。
@@ -693,7 +595,7 @@ export function ProjectionMapView({
   // 每帧（~60fps）触发的操作全部走命令式 DOM 路径：
   //   - 散点组的 transform 属性
   //   - --scatter-r / --sel-r CSS 变量（维持散点屏幕尺寸恒定）
-  //   - glyph 的 translate 属性
+  //   - glyph Canvas 的一次重绘
   //   - lasso 路径的重投影
   // React setViewport 只在 LOD 模式切换或 snappedK 跨级时才调用，
   // 并通过 requestAnimationFrame 去抖，将多次快速缩放的重渲染合并为一次。
@@ -725,18 +627,9 @@ export function ProjectionMapView({
         svgRef.current?.style.setProperty('--scatter-r', String(POINT_RADIUS / t.k))
         svgRef.current?.style.setProperty('--sel-r', String((POINT_RADIUS * 0.52) / t.k))
 
-        // Glyph 逐个重算 screen 坐标并写入 transform，避免矩阵叠加误差
+        // Glyph 使用单张 Atlas 重绘，不创建或更新独立图片 DOM 节点
         const sc = scalesRef.current
-        if (glyphGroupRef.current && sc) {
-          const half = MAP_GLYPH_SIZE / 2
-          d3.select(glyphGroupRef.current)
-            .selectAll<SVGGElement, ProjectionMapPoint>('g.glyph')
-            .attr('transform', d => {
-              const x = sc.x(d.tsne_comp1) * t.k + t.x - half
-              const y = sc.y(d.tsne_comp2) * t.k + t.y - half
-              return `translate(${x},${y})`
-            })
-        }
+        redrawGlyphCanvas(t)
 
         const dp = lassoDataPolyRef.current
         if (dp.length > 0 && sc && lassoPathRef.current) {
@@ -777,7 +670,10 @@ export function ProjectionMapView({
 
   // lasso 模式关闭时，重置所有绘制状态并清除 SVG 路径
   useEffect(() => {
-    if (!lassoActive) {
+    if (lassoActive) {
+      hoveredGlyphRef.current = null
+      redrawGlyphCanvas()
+    } else {
       isDrawingRef.current = false
       lassoDraftRef.current = []
       clearLasso()
@@ -800,8 +696,19 @@ export function ProjectionMapView({
     lassoPathRef.current?.setAttribute('d', '')
   }
 
+  function updateHoveredGlyph(sceneName: string | null): void {
+    if (hoveredGlyphRef.current === sceneName) return
+    hoveredGlyphRef.current = sceneName
+    if (svgRef.current) svgRef.current.style.cursor = sceneName ? 'pointer' : 'grab'
+    redrawGlyphCanvas()
+  }
+
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    if (!lassoActiveRef.current || e.button !== 0 || !svgRef.current) return
+    if (e.button !== 0 || !svgRef.current) return
+    if (!lassoActiveRef.current) {
+      pointerDownRef.current = [e.clientX, e.clientY]
+      return
+    }
     // 打断正在进行的 zoom-to-fit 动画，确保 lasso 从静止状态开始
     d3.select(svgRef.current).interrupt()
     clearLasso()
@@ -812,12 +719,35 @@ export function ProjectionMapView({
   }
 
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!lassoActiveRef.current) {
+      if (!svgRef.current || e.buttons !== 0) {
+        updateHoveredGlyph(null)
+        return
+      }
+      const [x, y] = toViewBox(svgRef.current, e.clientX, e.clientY)
+      updateHoveredGlyph(
+        hitTestGlyph(glyphScreenPointsRef.current, x, y, MAP_GLYPH_SIZE)?.sceneName ?? null
+      )
+      return
+    }
     if (!isDrawingRef.current || !svgRef.current || !lassoPathRef.current) return
     lassoDraftRef.current.push(toViewBox(svgRef.current, e.clientX, e.clientY))
     lassoPathRef.current.setAttribute('d', polyToPathD(lassoDraftRef.current))
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(e: React.PointerEvent<SVGSVGElement>) {
+    if (!lassoActiveRef.current) {
+      const start = pointerDownRef.current
+      pointerDownRef.current = null
+      if (!start || !svgRef.current || Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 5) {
+        return
+      }
+      const [x, y] = toViewBox(svgRef.current, e.clientX, e.clientY)
+      const hit = hitTestGlyph(glyphScreenPointsRef.current, x, y, MAP_GLYPH_SIZE)
+      const scene = hit ? pointsRef.current.find(point => point.scene_name === hit.sceneName) : null
+      if (scene) onGlyphClickRef.current?.(scene)
+      return
+    }
     if (!isDrawingRef.current) return
     isDrawingRef.current = false
 
@@ -868,18 +798,22 @@ export function ProjectionMapView({
     }
   }
 
+  function handlePointerLeave() {
+    pointerDownRef.current = null
+    if (!lassoActiveRef.current) updateHoveredGlyph(null)
+  }
+
   // ─── 渲染 ────────────────────────────────────────────────────────────────────
   //
   // SVG 层次结构：
   //
   //   <svg>                        ← 根，挂载 zoom 行为和 pointer 事件
-  //     <defs>                     ← 选中滤镜定义（橙色叠加）
   //     <rect.canvasBackground>    ← 背景色块
   //     <g.zoomLayer>              ← 受 D3 transform 控制
   //       <g opacity=0.6>          ← 密度热图等值线
   //       circles.scatterDot       ← scatter 模式 split 的散点
   //       circles.selectedDot      ← scatter 模式下选中点高亮
-  //     <g.glyphLayer>             ← screen-space glyph 层，D3 管理
+  //     <foreignObject><canvas>    ← screen-space Atlas glyph 层
   //     <path.lassoPath>           ← lasso 轮廓，命令式更新
 
   return (
@@ -914,7 +848,7 @@ export function ProjectionMapView({
             // 初始散点半径通过 CSS 变量注入，缩放时由 zoom 回调实时更新
             '--scatter-r': String(POINT_RADIUS),
             '--sel-r': String(POINT_RADIUS * 0.52),
-            cursor: lassoActive ? 'crosshair' : undefined
+            cursor: lassoActive ? 'crosshair' : 'grab'
           } as React.CSSProperties
         }
         role='img'
@@ -922,24 +856,9 @@ export function ProjectionMapView({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerLeave}
+        onPointerLeave={handlePointerLeave}
       >
-        <defs>
-          {/*
-           * 选中 glyph 的蓝色叠加滤镜，步骤：
-           * 1. feFlood：生成纯蓝色（#2563eb）30% 不透明度的色块
-           * 2. feComposite in：用原图 alpha 通道裁剪色块，仅保留图像轮廓内的蓝色
-           * 3. feComposite over：将裁剪后的蓝色叠加在原图之上
-           * 效果：glyph 图片上叠加半透明蓝色遮罩，轮廓外透明（不影响周围）
-           */}
-          <filter id='glyph-selected-filter' colorInterpolationFilters='sRGB'>
-            {/* 1. 生成高纯度蓝色 */}
-            <feFlood floodColor='#f88f06' result='SOLID_COLOR' />
-            {/* 2. 用原图 alpha 通道裁剪，绝不影响透明背景 */}
-            <feComposite operator='in' in='SOLID_COLOR' in2='SourceAlpha' result='MASKED_COLOR' />
-            {/* 3. 使用正片叠底 (multiply) 或颜色叠加，使图片纹理保留的同时改变颜色 */}
-            <feBlend mode='multiply' in='MASKED_COLOR' in2='SourceGraphic' />
-          </filter>
-        </defs>
         <rect className={cls.canvasBackground} width={VIEWBOX_WIDTH} height={VIEWBOX_HEIGHT} />
 
         {/*
@@ -970,7 +889,20 @@ export function ProjectionMapView({
             />
           ))}
 
-          {/* scatter 模式下的选中高亮；glyph 模式由 CSS 滤镜表达，无需重复渲染 */}
+          {/* Atlas 加载失败时保留空间结构，不退回到逐图请求。 */}
+          {glyphAtlasStatus !== 'ready' &&
+            [...gridCells.values()].map(point => (
+              <circle
+                key={'glyph-placeholder-' + point.scene_name}
+                className={cls.scatterDot}
+                cx={scales.x(point.tsne_comp1)}
+                cy={scales.y(point.tsne_comp2)}
+                fill={SPLIT_COLORS[point.split]}
+                opacity={glyphAtlasStatus === 'error' ? 0.45 : 0.25}
+              />
+            ))}
+
+          {/* scatter 模式下的选中高亮；glyph 模式由 Canvas 描边表达。 */}
           {selectedScenes
             .filter(p => scatterSplits.has(p.split))
             .map(p => (
@@ -984,8 +916,22 @@ export function ProjectionMapView({
             ))}
         </g>
 
-        {/* glyph 层：screen-space 定位，由 D3 数据绑定管理生命周期 */}
-        <g ref={glyphGroupRef} className={cls.glyphLayer} />
+        {/* glyph 层：单张 Atlas 在 Canvas 中按 screen-space 坐标裁剪绘制。 */}
+        <foreignObject
+          className={cls.glyphLayer}
+          x={0}
+          y={0}
+          width={VIEWBOX_WIDTH}
+          height={VIEWBOX_HEIGHT}
+        >
+          <canvas
+            ref={glyphCanvasRef}
+            className={cls.glyphCanvas}
+            width={VIEWBOX_WIDTH * GLYPH_CANVAS_DPR}
+            height={VIEWBOX_HEIGHT * GLYPH_CANVAS_DPR}
+            aria-hidden='true'
+          />
+        </foreignObject>
 
         {/* lasso 路径：常驻 DOM，d 属性由 pointer 事件处理器命令式更新 */}
         <path ref={lassoPathRef} className={cls.lassoPath} />

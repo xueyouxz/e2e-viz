@@ -2,7 +2,7 @@
 
 import * as p from '@clack/prompts'
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const localData = join(root, 'public', 'data')
+const glyphAtlasConfig = JSON.parse(readFileSync(join(root, 'glyph-atlas.config.json'), 'utf8'))
+const glyphAtlas = join(localData, 'glyphs', glyphAtlasConfig.fileName)
 const archive = process.env.NUSVIZ_ZIP || '/Users/xyxz/Data/nusviz-val.zip'
 const bucket = process.env.OSS_BUCKET || 'e2e-viz-private'
 const prefix = (process.env.OSS_PREFIX || 'e2e-viz/data/').replace(/^\/+/, '').replace(/\/*$/, '/')
@@ -113,6 +115,9 @@ async function warnAboutConfigPermissions() {
 
 async function main() {
   if (!existsSync(localData)) throw new Error(`Local data directory not found: ${localData}`)
+  if (!existsSync(glyphAtlas)) {
+    throw new Error(`Glyph atlas not found: ${glyphAtlas}. Run pnpm build:glyph-atlas first.`)
+  }
   if (!existsSync(archive)) throw new Error(`Scene archive not found: ${archive}`)
 
   p.intro('e2e-viz · 上传数据到私有 OSS')

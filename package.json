@@ -25,6 +25,8 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "size": "size-limit",
+    "build:glyph-atlas": "node scripts/build_glyph_atlas.mjs",
+    "render:glyphs": "node scripts/render_glyphs.mjs && pnpm build:glyph-atlas",
     "sync:data": "node scripts/sync-data.mjs",
     "prepare": "husky"
   },

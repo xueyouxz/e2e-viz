@@ -15,9 +15,12 @@ pnpm install
 pnpm dev
 pnpm lint
 pnpm build
+pnpm render:glyphs
 ```
 
 Local development data is read from `public/data/`, with `public/ego.glb` used by the scene viewer.
+`pnpm render:glyphs` renders the individual source glyphs and then packs them into the single
+`public/data/glyphs/glyph-atlas-v1.webp` runtime atlas.
 
 ## Production architecture
 
@@ -45,9 +48,11 @@ secrets/oss_access_key_id
 secrets/oss_access_key_secret
 ```
 
-After configuring Alibaba Cloud `ossutil` locally, upload `public/data/` and
+Generate the glyph atlas before uploading. After configuring Alibaba Cloud `ossutil` locally,
+upload `public/data/` and
 `/Users/xyxz/Data/nusviz-val.zip` with:
 
 ```bash
+pnpm build:glyph-atlas
 pnpm sync:data
 ```
