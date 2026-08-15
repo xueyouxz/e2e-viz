@@ -10,6 +10,7 @@ import {
 import * as d3 from 'd3'
 import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
 import { glyphAtlasLoader } from './glyph/glyphAtlas'
+import { resolveGlyphCanvasPixelRatio } from './glyph/glyphCanvasMetrics'
 import { drawGlyphCanvas, hitTestGlyph, type GlyphScreenPoint } from './glyph/glyphCanvasRenderer'
 import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
@@ -74,7 +75,6 @@ const POINT_RADIUS = 2
 // glyph 图片尺寸（像素）；CELL_SIZE 决定同一缩放级别下相邻 glyph 的最小间距
 const MAP_GLYPH_SIZE = 50
 const CELL_SIZE = 80
-const GLYPH_CANVAS_DPR = 2
 
 // matplotlib tab10 调色板的 C0/C1，学术图表标准色
 const SPLIT_COLORS: Record<SplitName, string> = { train: '#1f77b4', val: '#d62728' }
@@ -282,6 +282,13 @@ export function ProjectionMapView({
   onGlyphClick,
   onSelectionChange
 }: ProjectionMapViewProps) {
+  const glyphCanvasPixelRatio = useMemo(
+    () =>
+      resolveGlyphCanvasPixelRatio(
+        typeof window === 'undefined' ? undefined : window.devicePixelRatio
+      ),
+    []
+  )
   // 处于 scatter 模式的 split 集合；成员 = 始终显示散点，非成员 = 显示 glyph
   const [scatterSplits, setScatterSplits] = useState<Set<SplitName>>(new Set())
 
@@ -323,37 +330,40 @@ export function ProjectionMapView({
   const scalesRef = useRef<ScalePair | null>(null)
   const pointsRef = useRef(points)
 
-  function redrawGlyphCanvas(transform = transformRef.current): void {
-    const canvas = glyphCanvasRef.current
-    const context = canvas?.getContext('2d')
-    if (!canvas || !context) return
+  const redrawGlyphCanvas = useCallback(
+    (transform = transformRef.current): void => {
+      const canvas = glyphCanvasRef.current
+      const context = canvas?.getContext('2d')
+      if (!canvas || !context) return
 
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, canvas.width, canvas.height)
+      context.setTransform(1, 0, 0, 1, 0, 0)
+      context.clearRect(0, 0, canvas.width, canvas.height)
 
-    const atlas = glyphBitmapRef.current
-    const scales = scalesRef.current
-    if (!atlas || !scales) {
-      glyphScreenPointsRef.current = []
-      return
-    }
+      const atlas = glyphBitmapRef.current
+      const scales = scalesRef.current
+      if (!atlas || !scales) {
+        glyphScreenPointsRef.current = []
+        return
+      }
 
-    const screenPoints = glyphPointsRef.current.map<GlyphScreenPoint>(point => ({
-      sceneName: point.scene_name,
-      x: scales.x(point.tsne_comp1) * transform.k + transform.x,
-      y: scales.y(point.tsne_comp2) * transform.k + transform.y,
-      selected: selectedSetRef.current.has(point.scene_name)
-    }))
-    glyphScreenPointsRef.current = screenPoints
+      const screenPoints = glyphPointsRef.current.map<GlyphScreenPoint>(point => ({
+        sceneName: point.scene_name,
+        x: scales.x(point.tsne_comp1) * transform.k + transform.x,
+        y: scales.y(point.tsne_comp2) * transform.k + transform.y,
+        selected: selectedSetRef.current.has(point.scene_name)
+      }))
+      glyphScreenPointsRef.current = screenPoints
 
-    context.setTransform(GLYPH_CANVAS_DPR, 0, 0, GLYPH_CANVAS_DPR, 0, 0)
-    drawGlyphCanvas(context, atlas, screenPoints, {
-      width: VIEWBOX_WIDTH,
-      height: VIEWBOX_HEIGHT,
-      glyphSize: MAP_GLYPH_SIZE,
-      hoveredSceneName: hoveredGlyphRef.current
-    })
-  }
+      context.setTransform(glyphCanvasPixelRatio, 0, 0, glyphCanvasPixelRatio, 0, 0)
+      drawGlyphCanvas(context, atlas, screenPoints, {
+        width: VIEWBOX_WIDTH,
+        height: VIEWBOX_HEIGHT,
+        glyphSize: MAP_GLYPH_SIZE,
+        hoveredSceneName: hoveredGlyphRef.current
+      })
+    },
+    [glyphCanvasPixelRatio]
+  )
 
   useLayoutEffect(() => {
     lassoActiveRef.current = lassoActive
@@ -493,7 +503,7 @@ export function ProjectionMapView({
     glyphPointsRef.current = culledGlyphPoints
     selectedSetRef.current = selectedSet
     redrawGlyphCanvas()
-  }, [culledGlyphPoints, selectedSet, scales])
+  }, [culledGlyphPoints, redrawGlyphCanvas, selectedSet, scales])
 
   useEffect(() => {
     let mounted = true
@@ -516,7 +526,7 @@ export function ProjectionMapView({
       glyphBitmapRef.current = null
       glyphScreenPointsRef.current = []
     }
-  }, [])
+  }, [redrawGlyphCanvas])
 
   // ─── 柱状图数据 ─────────────────────────────────────────────────────────────
 
@@ -666,7 +676,7 @@ export function ProjectionMapView({
       svg.on('.zoom', null)
       if (zoomRafRef.current !== null) cancelAnimationFrame(zoomRafRef.current)
     }
-  }, [])
+  }, [redrawGlyphCanvas])
 
   // lasso 模式关闭时，重置所有绘制状态并清除 SVG 路径
   useEffect(() => {
@@ -678,7 +688,7 @@ export function ProjectionMapView({
       lassoDraftRef.current = []
       clearLasso()
     }
-  }, [lassoActive])
+  }, [lassoActive, redrawGlyphCanvas])
 
   // 外部清除选中（selectedScenes 变为空数组）时同步清除 lasso 可视路径
   useEffect(() => {
@@ -934,8 +944,8 @@ export function ProjectionMapView({
           <canvas
             ref={glyphCanvasRef}
             className={cls.glyphCanvas}
-            width={VIEWBOX_WIDTH * GLYPH_CANVAS_DPR}
-            height={VIEWBOX_HEIGHT * GLYPH_CANVAS_DPR}
+            width={VIEWBOX_WIDTH * glyphCanvasPixelRatio}
+            height={VIEWBOX_HEIGHT * glyphCanvasPixelRatio}
             aria-hidden='true'
           />
         </foreignObject>

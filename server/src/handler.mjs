@@ -8,6 +8,7 @@ const FORWARDED_RESPONSE_HEADERS = new Set([
   'etag',
   'last-modified'
 ])
+const RETRYABLE_OSS_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 
 function sendJson(response, statusCode, body) {
   const payload = JSON.stringify(body)
@@ -28,9 +29,22 @@ function contentTypeFor(objectName) {
 }
 
 function cacheControlFor(objectName) {
+  if (objectName.endsWith('/projection-map/dimension_reduction.json')) {
+    return 'public, max-age=300, stale-while-revalidate=3600, stale-if-error=86400'
+  }
+  if (objectName.includes('/glyphs/glyph-atlas-') && objectName.endsWith('.webp')) {
+    return 'public, max-age=86400, stale-while-revalidate=604800, stale-if-error=604800'
+  }
   return objectName.endsWith('.json')
     ? 'private, max-age=300, must-revalidate'
     : 'private, max-age=86400'
+}
+
+function isInitialDataResource(objectName) {
+  return (
+    objectName.endsWith('/projection-map/dimension_reduction.json') ||
+    (objectName.includes('/glyphs/glyph-atlas-') && objectName.endsWith('.webp'))
+  )
 }
 
 function ossRequestHeaders(request) {
@@ -54,10 +68,47 @@ function applyObjectHeaders(response, objectName, ossHeaders = {}) {
   }
 }
 
+function sendNotModified(response, objectName, ossHeaders = {}) {
+  applyObjectHeaders(response, objectName, ossHeaders)
+  response.writeHead(304)
+  response.end()
+}
+
 function statusFromOssError(error) {
   const status = Number(error?.status ?? error?.statusCode)
   if ([304, 403, 404, 412, 416].includes(status)) return status
   return 502
+}
+
+function isRetryableOssError(error) {
+  const status = Number(error?.status ?? error?.statusCode)
+  if (Number.isFinite(status)) return RETRYABLE_OSS_STATUS_CODES.has(status)
+  return true
+}
+
+async function getStreamWithRetry(ossClient, objectName, options, config) {
+  const maxRetries = config.requestMaxRetries ?? 2
+  const retryBaseDelayMs = config.retryBaseDelayMs ?? 150
+  const { deadline, ...requestOptions } = options
+
+  for (let attempt = 0; ; attempt += 1) {
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) {
+      throw Object.assign(new Error('OSS request deadline exceeded'), { code: 'ETIMEDOUT' })
+    }
+
+    try {
+      return await ossClient.getStream(objectName, {
+        ...requestOptions,
+        timeout: Math.min(requestOptions.timeout, remainingMs)
+      })
+    } catch (error) {
+      if (!isRetryableOssError(error) || attempt >= maxRetries) throw error
+      const retryDelayMs = retryBaseDelayMs * 2 ** attempt
+      if (Date.now() + retryDelayMs >= deadline) throw error
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs))
+    }
+  }
 }
 
 export function createRequestHandler({ ossClient, config, budget, logger = console }) {
@@ -100,18 +151,43 @@ export function createRequestHandler({ ossClient, config, budget, logger = conso
     }
 
     try {
+      const initialDataRequest = isInitialDataResource(objectName)
+      const responseDeadline =
+        Date.now() +
+        (initialDataRequest
+          ? (config.initialDataDeadlineMs ?? 12_000)
+          : (config.requestDeadlineMs ?? 55_000))
       if (request.method === 'HEAD') {
-        const result = await ossClient.head(objectName, { timeout: config.requestTimeoutMs })
+        const result = await ossClient.head(objectName, {
+          timeout: Math.min(
+            config.requestTimeoutMs,
+            initialDataRequest
+              ? (config.initialDataDeadlineMs ?? 12_000)
+              : (config.requestDeadlineMs ?? 55_000)
+          )
+        })
         applyObjectHeaders(response, objectName, result.res?.headers)
         response.writeHead(result.res?.status ?? 200)
         response.end()
         return
       }
 
-      const result = await ossClient.getStream(objectName, {
-        headers: ossRequestHeaders(request),
-        timeout: config.requestTimeoutMs
-      })
+      const result = await getStreamWithRetry(
+        ossClient,
+        objectName,
+        {
+          headers: ossRequestHeaders(request),
+          timeout: config.requestTimeoutMs,
+          deadline: responseDeadline
+        },
+        config
+      )
+      const upstreamStatus = result.res?.status ?? 200
+      if (upstreamStatus === 304) {
+        result.stream.destroy()
+        sendNotModified(response, objectName, result.res?.headers)
+        return
+      }
       const contentLength = Number(result.res?.headers?.['content-length'])
       if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
         result.stream.destroy()
@@ -134,14 +210,28 @@ export function createRequestHandler({ ossClient, config, budget, logger = conso
       }
 
       applyObjectHeaders(response, objectName, result.res?.headers)
-      response.writeHead(result.res?.status ?? 200)
+      response.writeHead(upstreamStatus)
       response.on('close', () => {
         if (!response.writableEnded) result.stream.destroy()
       })
-      await pipeline(result.stream, response)
+      const streamDeadline = initialDataRequest
+        ? setTimeout(
+            () => result.stream.destroy(new Error('OSS stream deadline exceeded')),
+            Math.max(1, responseDeadline - Date.now())
+          )
+        : null
+      try {
+        await pipeline(result.stream, response)
+      } finally {
+        if (streamDeadline) clearTimeout(streamDeadline)
+      }
     } catch (error) {
       if (response.headersSent || response.destroyed) return
       const status = statusFromOssError(error)
+      if (status === 304) {
+        sendNotModified(response, objectName, error?.res?.headers)
+        return
+      }
       if (status >= 500) {
         logger.error('OSS request failed', {
           name: error?.name,

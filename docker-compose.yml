@@ -6,11 +6,13 @@ services:
       - "127.0.0.1:3001:80"
     depends_on:
       api:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     pull_policy: always
     security_opt:
       - no-new-privileges:true
+    volumes:
+      - initial_data_cache:/var/cache/nginx/e2e-data
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
       interval: 10s
@@ -35,6 +37,10 @@ services:
       OSS_BUCKET: ${OSS_BUCKET:-e2e-viz-private}
       OSS_PREFIX: ${OSS_PREFIX:-e2e-viz/data/}
       OSS_INTERNAL: "true"
+      OSS_REQUEST_DEADLINE_MS: ${OSS_REQUEST_DEADLINE_MS:-55000}
+      INITIAL_DATA_RESPONSE_DEADLINE_MS: ${INITIAL_DATA_RESPONSE_DEADLINE_MS:-12000}
+      OSS_REQUEST_MAX_RETRIES: ${OSS_REQUEST_MAX_RETRIES:-2}
+      OSS_RETRY_BASE_DELAY_MS: ${OSS_RETRY_BASE_DELAY_MS:-150}
       OSS_ACCESS_KEY_ID_FILE: /run/secrets/oss_access_key_id
       OSS_ACCESS_KEY_SECRET_FILE: /run/secrets/oss_access_key_secret
       DAILY_REQUEST_LIMIT: ${DAILY_REQUEST_LIMIT:-20000}
@@ -73,3 +79,4 @@ secrets:
 
 volumes:
   budget_state:
+  initial_data_cache:

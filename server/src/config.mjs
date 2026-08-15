@@ -15,6 +15,14 @@ function positiveInteger(name, defaultValue) {
   return value
 }
 
+function nonNegativeInteger(name, defaultValue) {
+  const value = Number(process.env[name] ?? defaultValue)
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer`)
+  }
+  return value
+}
+
 export function loadConfig() {
   return {
     host: process.env.HOST?.trim() || '0.0.0.0',
@@ -28,6 +36,10 @@ export function loadConfig() {
       accessKeySecret: requiredSecret('OSS_ACCESS_KEY_SECRET')
     },
     requestTimeoutMs: positiveInteger('OSS_REQUEST_TIMEOUT_MS', 30_000),
+    requestDeadlineMs: positiveInteger('OSS_REQUEST_DEADLINE_MS', 55_000),
+    initialDataDeadlineMs: positiveInteger('INITIAL_DATA_RESPONSE_DEADLINE_MS', 12_000),
+    requestMaxRetries: nonNegativeInteger('OSS_REQUEST_MAX_RETRIES', 2),
+    retryBaseDelayMs: positiveInteger('OSS_RETRY_BASE_DELAY_MS', 150),
     dailyRequestLimit: positiveInteger('DAILY_REQUEST_LIMIT', 20_000),
     dailyTransferLimitBytes: positiveInteger('DAILY_TRANSFER_LIMIT_BYTES', 10_737_418_240),
     budgetStateFile: process.env.BUDGET_STATE_FILE?.trim() || null

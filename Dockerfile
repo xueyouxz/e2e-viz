@@ -18,6 +18,7 @@ FROM node:22-alpine AS runner
 RUN apk add --no-cache nginx
 WORKDIR /app
 RUN mkdir -p /app/state && chown node:node /app/state
+RUN mkdir -p /var/cache/nginx/e2e-data && chown -R nginx:nginx /var/cache/nginx
 COPY nginx.conf /etc/nginx/http.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=api-dependencies /app/server/node_modules /app/server/node_modules

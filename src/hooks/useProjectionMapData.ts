@@ -1,29 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
+import { projectionDataLoader } from '@/features/projection-map/data/projectionData'
 import type { ProjectionMapPoint, SplitName } from '@/types/scene'
 
-type ProjectionPayload = { scene_counts: number; scenes: ProjectionMapPoint[] }
-
-const PROJECTION_PATH = '/data/projection-map/dimension_reduction.json'
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(path)
-  if (!response.ok) throw new Error(`Request failed: ${path} (${response.status})`)
-  return (await response.json()) as T
-}
-
 export function useProjectionMapData() {
-  const [points, setPoints] = useState<ProjectionMapPoint[]>([])
-  const [loading, setLoading] = useState(true)
+  const cached = projectionDataLoader.peek()
+  const [points, setPoints] = useState<ProjectionMapPoint[]>(cached?.scenes ?? [])
+  const [loading, setLoading] = useState(cached === null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const available = projectionDataLoader.peek()
+    if (available) {
+      setPoints(available.scenes)
+      setLoading(false)
+      setError(null)
+      return
+    }
     let cancelled = false
 
     async function load() {
       setLoading(true)
       setError(null)
       try {
-        const projection = await fetchJson<ProjectionPayload>(PROJECTION_PATH)
+        const projection = await projectionDataLoader.load()
         if (!cancelled) setPoints(projection.scenes)
       } catch (err) {
         if (!cancelled)

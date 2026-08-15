@@ -17,22 +17,22 @@ export default defineConfig({
     port: 3001
   },
   build: {
+    manifest: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('/node_modules/three/')) return 'three-core'
-          if (id.includes('/node_modules/@react-three/')) return 'r3f'
           if (
             id.includes('/node_modules/react-dom/') ||
             id.includes('/node_modules/react/') ||
             id.includes('/node_modules/scheduler/')
-          ) return 'react-vendor'
+          )
+            return 'react-vendor'
           if (
             id.includes('/node_modules/react-router-dom/') ||
             id.includes('/node_modules/react-router/') ||
             id.includes('/node_modules/@remix-run/')
-          ) return 'router'
-          if (id.includes('/node_modules/zustand/')) return 'zustand'
+          )
+            return 'router'
         }
       }
     },

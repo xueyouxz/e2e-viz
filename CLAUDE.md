@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm dev          # dev server at http://localhost:3001
-pnpm build        # tsc -b && vite build
+pnpm build        # validate glyph atlas, typecheck, Vite build, initial bundle check
 pnpm typecheck    # tsc --noEmit (type check without emit)
 pnpm lint         # eslint
 pnpm lint:fix     # eslint --fix
@@ -94,7 +94,7 @@ const ref = useRef<ElementRef<typeof OrbitControls> | null>(null)
 ## Tooling
 
 - Package manager: **pnpm** (v10+)
-- Build: **Vite 7** with manual chunks (three-core, r3f, react-vendor, router, zustand)
+- Build: **Vite 7** with manual chunks for the application shell (`react-vendor`, `router`); the Three.js/R3F/Zustand graph stays inside the lazy SceneViewer chunk
 - Tests: **Vitest** with jsdom; coverage via v8; test setup in `src/test/setup.ts`
 - Linting: ESLint (flat config `eslint.config.mjs`), Stylelint (`stylelint-config-recess-order`)
 - Pre-commit: Husky + lint-staged (ESLint + Prettier on TS/TSX; Stylelint + Prettier on CSS)

@@ -1,15 +1,5 @@
 [
   {
-    "name": "three-core",
-    "path": "dist/assets/three-core-*.js",
-    "limit": "225 kB"
-  },
-  {
-    "name": "r3f",
-    "path": "dist/assets/r3f-*.js",
-    "limit": "95 kB"
-  },
-  {
     "name": "react-vendor",
     "path": "dist/assets/react-vendor-*.js",
     "limit": "75 kB"
@@ -18,14 +8,18 @@
     "name": "app",
     "path": [
       "dist/assets/router-*.js",
-      "dist/assets/SceneViewer-*.js",
       "dist/assets/ProjectionMapPage-*.js",
       "dist/assets/transform-*.js",
       "dist/assets/index-*.js",
-      "dist/assets/zustand-*.js",
+      "dist/assets/useProjectionMapData-*.js",
       "dist/assets/SceneViewerRoute-*.js"
     ],
     "limit": "120 kB"
+  },
+  {
+    "name": "scene-viewer (lazy)",
+    "path": "dist/assets/SceneViewer-*.js",
+    "limit": "330 kB"
   },
   {
     "name": "CSS",
