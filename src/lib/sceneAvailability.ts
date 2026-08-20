@@ -8,7 +8,7 @@ export class SceneAvailabilityProbe {
   readonly #fetchScene: FetchScene
   readonly #cache = new Map<string, Exclude<SceneAvailability, 'temporary-error'>>()
 
-  constructor(fetchScene: FetchScene = fetch) {
+  constructor(fetchScene: FetchScene = fetch.bind(globalThis)) {
     this.#fetchScene = fetchScene
   }
 

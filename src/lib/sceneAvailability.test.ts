@@ -7,6 +7,24 @@ function scene(scene_name: string, split: ProjectionMapPoint['split']): Projecti
 }
 
 describe('SceneAvailabilityProbe', () => {
+  it('calls the default fetch with the global receiver', async () => {
+    const fetchScene = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+      )
+    vi.stubGlobal('fetch', fetchScene)
+
+    try {
+      const probe = new SceneAvailabilityProbe()
+
+      await expect(probe.check(scene('scene-0017', 'val'))).resolves.toBe('available')
+      expect(fetchScene.mock.contexts[0]).toBe(globalThis)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('does not request detail data for a train scene', async () => {
     const fetchScene = vi.fn()
     const probe = new SceneAvailabilityProbe(fetchScene)
