@@ -44,7 +44,7 @@ export function PointRenderer({ streamName, style }: LayerRendererProps) {
     const intensities = payload?.intensity ?? undefined
     const n = points ? (points.length / 3) | 0 : 0
 
-    if (n > capacityRef.current) {
+    if (!geoRef.current || n > capacityRef.current) {
       geoRef.current?.dispose()
       const cap = nextPowerOfTwo(n)
       const geo = new THREE.BufferGeometry()
