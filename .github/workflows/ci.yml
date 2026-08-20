@@ -115,15 +115,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Sync docker-compose.yml to server
+      - name: Export Docker image for ECS
+        run: |
+          IMAGE_REF="${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA}"
+          docker pull "${IMAGE_REF}"
+          docker save "${IMAGE_REF}" | gzip -1 > e2e-viz-image.tar.gz
+          sha256sum e2e-viz-image.tar.gz > e2e-viz-image.tar.gz.sha256
+
+      - name: Sync deployment files to server
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: docker-compose.yml
+          source: docker-compose.yml,e2e-viz-image.tar.gz,e2e-viz-image.tar.gz.sha256
           target: /opt/e2e-viz/
           overwrite: true
+          command_timeout: 30m
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -135,10 +143,23 @@ jobs:
           script: |
             set -eu
             IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+            IMAGE_ARCHIVE="/opt/e2e-viz/e2e-viz-image.tar.gz"
+            IMAGE_CHECKSUM="/opt/e2e-viz/e2e-viz-image.tar.gz.sha256"
             COMPOSE_BASE="/opt/e2e-viz/docker-compose.yml"
             OVERRIDE_FILE="/tmp/e2e-viz-image.override.yml"
             ROLLBACK_FILE="/tmp/e2e-viz-rollback.override.yml"
             HEALTH_URL="${{ env.DEPLOY_HEALTH_URL }}"
+
+            cleanup() {
+              rm -f "${IMAGE_ARCHIVE}" "${IMAGE_CHECKSUM}" \
+                "${OVERRIDE_FILE}" "${ROLLBACK_FILE}"
+            }
+            trap cleanup EXIT
+
+            cd /opt/e2e-viz
+            sha256sum -c "$(basename "${IMAGE_CHECKSUM}")"
+            gzip -dc "${IMAGE_ARCHIVE}" | docker load
+            docker image inspect "${IMAGE_REF}" >/dev/null
 
             # Record the currently-running image before the update so we can
             # roll back if the new version fails its health check.
@@ -154,8 +175,8 @@ jobs:
                 image: ${IMAGE_REF}
             EOF
 
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" pull app api
-            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" up -d api app
+            docker compose -f "${COMPOSE_BASE}" -f "${OVERRIDE_FILE}" \
+              up -d --pull never api app
 
             healthcheck() {
               if command -v curl >/dev/null 2>&1; then
@@ -192,7 +213,8 @@ jobs:
               api:
                 image: ${PREV_IMAGE}
             EOF
-              docker compose -f "${COMPOSE_BASE}" -f "${ROLLBACK_FILE}" up -d api app
+              docker compose -f "${COMPOSE_BASE}" -f "${ROLLBACK_FILE}" \
+                up -d --pull never api app
               echo "Rollback complete."
             fi
             exit 1
