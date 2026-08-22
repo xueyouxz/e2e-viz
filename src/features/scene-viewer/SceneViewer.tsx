@@ -15,6 +15,8 @@ import { CameraPanel } from './panels/CameraPanel'
 import { StatisticsPanel } from './panels/StatisticsPanel'
 import { PanelToggleBar } from './panels/PanelToggleBar'
 import { TimelineBar } from './panels/TimelineBar'
+import { SceneLoadingOverlay } from './SceneLoadingOverlay'
+import type { SceneLoadingProgress } from './data/loadingProgress'
 
 interface SceneViewerProps {
   sceneUrl: string
@@ -30,49 +32,77 @@ export default function SceneViewer({ sceneUrl }: SceneViewerProps) {
   // createSceneStore 工厂形式：每次组件挂载创建独立 store 实例（ADR-0001）
   const [store] = useState(() => createSceneStore())
   const [dataManager, setDataManager] = useState<SceneDataManager | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [metadataReady, setMetadataReady] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState<SceneLoadingProgress>({
+    phase: 'index',
+    loadedBytes: 0,
+    totalBytes: null
+  })
   const [error, setError] = useState<string | null>(null)
 
   // 当 sceneUrl 变化时重新加载：创建新的 SceneDataManager，
   // 解析 metadata.glb 拿到场景元数据后写入 store，
   // cancelled flag 防止 sceneUrl 切换时旧请求的回调污染新状态
   useEffect(() => {
-    setLoading(true)
+    setMetadataReady(false)
     setError(null)
 
     const manager = new SceneDataManager(sceneUrl)
     let cancelled = false
+    const unsubscribe = manager.subscribeLoadingProgress(setLoadingProgress)
+    setDataManager(manager)
 
     manager
       .init()
       .then(({ metadata, initialStreamState }) => {
         if (cancelled) return
         store.getState().setMetadata(metadata, initialStreamState)
-        setDataManager(manager)
-        setLoading(false)
+        setMetadataReady(true)
       })
       .catch((err: unknown) => {
         if (cancelled) return
         setError(err instanceof Error ? err.message : String(err))
-        setLoading(false)
       })
 
     return () => {
       cancelled = true
+      unsubscribe()
       // destroy 会终止 Worker、撤销所有 Blob URL（ADR-0002）
       manager.destroy()
     }
   }, [sceneUrl, store])
 
-  if (loading) return <div>Loading scene…</div>
-  if (error || !dataManager) return <div>⚠ Failed to load scene: {error}</div>
+  if (error) {
+    return (
+      <div className='flex h-full w-full items-center justify-center bg-app-surface-raised p-6'>
+        <div className='max-w-[420px] text-center text-sm text-app-text-muted'>
+          无法加载场景：{error}
+        </div>
+      </div>
+    )
+  }
+
+  if (!dataManager || !metadataReady) return <SceneLoadingShell progress={loadingProgress} />
 
   // 通过 Context 将 store 和 dataManager 一起下传，
   // 子组件通过 useSceneStore / useSceneStoreApi 按需订阅，不经过 props drilling
   return (
     <SceneCtx.Provider value={{ store, dataManager }}>
-      <SceneViewerInner />
+      <SceneViewerInner loadingProgress={loadingProgress} />
     </SceneCtx.Provider>
+  )
+}
+
+function SceneLoadingShell({ progress }: { progress: SceneLoadingProgress }) {
+  return (
+    <div className='flex h-full w-full flex-col bg-app-surface-raised'>
+      <div className='relative min-h-0 flex-1'>
+        <div className='absolute top-4 left-4 h-28 w-52 rounded-md border border-app-border bg-app-surface/70' />
+        <div className='absolute top-4 right-4 h-40 w-56 rounded-md border border-app-border bg-app-surface/70' />
+        <SceneLoadingOverlay progress={progress} />
+      </div>
+      <div className='h-[62px] border-t border-app-border bg-app-surface' />
+    </div>
   )
 }
 
@@ -93,7 +123,7 @@ function FrameDataSync() {
 // 2. 管理三个面板（Streams / Cameras / Stats）的开关状态
 // 3. 将流元数据映射为渲染器组件列表，传入 Canvas
 
-function SceneViewerInner() {
+function SceneViewerInner({ loadingProgress }: { loadingProgress: SceneLoadingProgress }) {
   const streamsMeta = useSceneStore(s => s.streamsMeta)
   const cameraMode = useSceneStore(s => s.cameraMode)
   const setCameraMode = useSceneStore(s => s.setCameraMode)
@@ -161,6 +191,8 @@ function SceneViewerInner() {
             <SelectedObjectIcon />
           </Suspense>
         </Canvas>
+
+        {loadingProgress.phase !== 'ready' && <SceneLoadingOverlay progress={loadingProgress} />}
 
         {/* 中央工具栏：面板开关 + 相机模式切换，由 CSS absolute 定位居中 */}
         <PanelToggleBar

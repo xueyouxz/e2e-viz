@@ -43,3 +43,13 @@ p,
 ul {
   margin: 0;
 }
+
+@keyframes scene-loading {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(260%);
+  }
+}
