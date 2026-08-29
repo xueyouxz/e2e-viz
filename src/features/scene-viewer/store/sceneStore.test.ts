@@ -78,6 +78,25 @@ describe('createSceneStore', () => {
     })
   })
 
+  it('resets scene data while preserving viewer preferences', () => {
+    const store = createSceneStore()
+    store.getState().setMetadata(META, {})
+    store.getState().setFrameIndex(5)
+    store.getState().setCameraMode('bev')
+    store.getState().setPlaybackSpeed(2)
+
+    store.getState().resetSceneData()
+
+    expect(store.getState()).toMatchObject({
+      streamsMeta: {},
+      totalFrames: 0,
+      frameIndex: 0,
+      isPlaying: false,
+      cameraMode: 'bev',
+      playbackSpeed: 2
+    })
+  })
+
   describe('setFrame', () => {
     it('COMPLETE_STATE replaces streamState with staticStreamState + patches', () => {
       const store = createSceneStore()

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SceneDataManager } from './SceneDataManager'
+import { SceneRepository } from './SceneRepository'
 import type { MetadataParseResult } from './MetadataParser'
 import type { RawDecodedFrame, SceneMetadata } from '../types'
 
@@ -118,7 +118,7 @@ function frameIndexFromUrl(url: string): number | null {
 }
 
 function installImmediateFetch(frameCount = 12) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input)
     if (url.endsWith('message_index.json')) return responseFrom(messageIndex(frameCount))
     if (url.endsWith('metadata.glb')) return responseFrom(new ArrayBuffer(1))
@@ -130,9 +130,9 @@ function installImmediateFetch(frameCount = 12) {
   return fetchMock
 }
 
-async function initManager(manager: SceneDataManager): Promise<void> {
-  await manager.init()
-  await manager.loadFrame(0)
+async function initRepository(repository: SceneRepository): Promise<void> {
+  await repository.init()
+  await repository.loadFrame(0)
 }
 
 beforeEach(() => {
@@ -155,7 +155,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('SceneDataManager', () => {
+describe('SceneRepository', () => {
   it('starts metadata and first-frame downloads in parallel', async () => {
     const metadataBuffer = deferred<ArrayBuffer>()
     const firstFrameBuffer = deferred<ArrayBuffer>()
@@ -168,8 +168,8 @@ describe('SceneDataManager', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const manager = new SceneDataManager('/scene/')
-    const initPromise = manager.init()
+    const repository = new SceneRepository('/scene/')
+    const initPromise = repository.init()
 
     await vi.waitFor(() => {
       expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(
@@ -180,8 +180,8 @@ describe('SceneDataManager', () => {
     metadataBuffer.resolve(new ArrayBuffer(1))
     await initPromise
     firstFrameBuffer.resolve(bufferFor(0))
-    await manager.loadFrame(0)
-    manager.destroy()
+    await repository.loadFrame(0)
+    repository.destroy()
   })
 
   it('deduplicates and promotes a queued user request ahead of background prefetch', async () => {
@@ -200,13 +200,13 @@ describe('SceneDataManager', () => {
       return responseFrom(pending.promise)
     })
     vi.stubGlobal('fetch', fetchMock)
-    const manager = new SceneDataManager('/scene/')
-    await initManager(manager)
+    const repository = new SceneRepository('/scene/')
+    await initRepository(repository)
 
-    manager.prefetch(0)
+    repository.prefetchAround(0)
     await vi.waitFor(() => expect(requestedFrames).toEqual([1, 2]))
-    const critical = manager.loadFrame(5)
-    const duplicate = manager.loadFrame(5)
+    const critical = repository.loadFrame(5)
+    const duplicate = repository.loadFrame(5)
 
     pendingFrames.get(1)?.resolve(bufferFor(1))
     await vi.waitFor(() => expect(requestedFrames).toEqual([1, 2, 5]))
@@ -214,20 +214,45 @@ describe('SceneDataManager', () => {
     pendingFrames.get(5)?.resolve(bufferFor(5))
     await Promise.all([critical, duplicate])
     expect(requestedFrames.filter(frameIndex => frameIndex === 5)).toHaveLength(1)
-    manager.destroy()
+    repository.destroy()
     for (const [index, pending] of pendingFrames) pending.resolve(bufferFor(index))
   })
 
   it('revokes every materialized image URL on destroy', async () => {
-    installImmediateFetch()
-    const manager = new SceneDataManager('/scene/')
-    await initManager(manager)
-    await manager.loadFrame(9)
+    const fetchMock = installImmediateFetch()
+    const repository = new SceneRepository('/scene/')
+    const onCacheChange = vi.fn()
+    repository.subscribeCacheChanges(onCacheChange)
+    await initRepository(repository)
+    await repository.loadFrame(9)
 
-    manager.destroy()
+    const signals = fetchMock.mock.calls
+      .map(([, init]) => init?.signal)
+      .filter((signal): signal is AbortSignal => signal !== undefined && signal !== null)
 
+    repository.destroy()
+
+    expect(signals.length).toBeGreaterThan(0)
+    expect(signals.every(signal => signal === signals[0] && signal.aborted)).toBe(true)
+    expect(onCacheChange).toHaveBeenCalled()
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fixture')
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not materialize a decode that completes after destroy', async () => {
+    installImmediateFetch()
+    const repository = new SceneRepository('/scene/')
+    await initRepository(repository)
+    const pendingDecode = deferred<RawDecodedFrame>()
+    decoderMocks.decode.mockImplementationOnce(() => pendingDecode.promise)
+
+    const pendingLoad = repository.loadFrame(9)
+    await vi.waitFor(() => expect(decoderMocks.decode).toHaveBeenCalledTimes(2))
+    repository.destroy()
+    pendingDecode.resolve(frame(9))
+
+    await expect(pendingLoad).rejects.toThrow('SceneRepository destroyed')
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
   })
 })

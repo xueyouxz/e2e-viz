@@ -3,12 +3,32 @@ import type { EgoPose, SceneMetadata, SceneStatistics, StreamMeta, StreamPayload
 
 export type CameraMode = 'follow' | 'free' | 'bev'
 
+function createEmptySceneData() {
+  return {
+    streamsMeta: {},
+    cameras: {},
+    totalFrames: 0,
+    timestamps: null,
+    statistics: null,
+    sceneName: '',
+    sceneDescription: '',
+    staticStreamState: {},
+    streamState: {},
+    egoPose: null,
+    frameIndex: 0,
+    isPlaying: false,
+    bufferEndFrame: 0,
+    visibleStreams: {},
+    selectedTrackId: null
+  }
+}
+
 const DEFAULT_HIDDEN = new Set([
   '/lidar',
   '/gt/objects/future_trajectories',
   '/gt/map/road_segment',
   '/gt/map/lane',
-  '/gt/map/stop_line',
+  '/gt/map/stop_line'
 ])
 
 export interface SceneState {
@@ -35,11 +55,12 @@ export interface SceneState {
   selectedTrackId: number | null
   setSelectedTrackId: (id: number | null) => void
 
+  resetSceneData: () => void
   setMetadata: (meta: SceneMetadata, initialStreamState: Record<string, StreamPayload>) => void
   setFrame: (
     updateType: 'COMPLETE_STATE' | 'INCREMENTAL',
     egoPose: EgoPose | null,
-    patches: Record<string, StreamPayload>,
+    patches: Record<string, StreamPayload>
   ) => void
   setFrameIndex: (i: number) => void
   setBufferEndFrame: (frame: number) => void
@@ -51,24 +72,12 @@ export interface SceneState {
 }
 
 export function createSceneStore() {
-  return create<SceneState>((set) => ({
-    streamsMeta: {},
-    cameras: {},
-    totalFrames: 0,
-    timestamps: null,
-    statistics: null,
-    sceneName: '',
-    sceneDescription: '',
-    staticStreamState: {},
-    streamState: {},
-    egoPose: null,
-    frameIndex: 0,
-    isPlaying: false,
+  return create<SceneState>(set => ({
+    ...createEmptySceneData(),
     playbackSpeed: 1,
-    bufferEndFrame: 0,
     cameraMode: 'free',
-    visibleStreams: {},
-    selectedTrackId: null,
+
+    resetSceneData: () => set(createEmptySceneData()),
 
     setMetadata: (meta, initialStreamState) =>
       set({
@@ -83,38 +92,38 @@ export function createSceneStore() {
         streamState: initialStreamState,
         visibleStreams: Object.fromEntries(
           Object.keys(meta.streams)
-            .filter((k) => meta.streams[k].type !== 'pose')
-            .map((k) => [k, !DEFAULT_HIDDEN.has(k)]),
+            .filter(k => meta.streams[k].type !== 'pose')
+            .map(k => [k, !DEFAULT_HIDDEN.has(k)])
         ),
         frameIndex: 0,
         isPlaying: false,
-        selectedTrackId: null,
+        selectedTrackId: null
       }),
 
     setFrame: (updateType, egoPose, patches) =>
-      set((state) => ({
+      set(state => ({
         egoPose: egoPose ?? state.egoPose,
         streamState:
           updateType === 'COMPLETE_STATE'
             ? { ...state.staticStreamState, ...patches }
-            : { ...state.streamState, ...patches },
+            : { ...state.streamState, ...patches }
       })),
 
-    setFrameIndex: (i) => set({ frameIndex: i }),
-    setBufferEndFrame: (frame) => set({ bufferEndFrame: frame }),
+    setFrameIndex: i => set({ frameIndex: i }),
+    setBufferEndFrame: frame => set({ bufferEndFrame: frame }),
     play: () =>
-      set((state) => ({
+      set(state => ({
         isPlaying: true,
-        frameIndex: state.frameIndex >= state.totalFrames - 1 ? 0 : state.frameIndex,
+        frameIndex: state.frameIndex >= state.totalFrames - 1 ? 0 : state.frameIndex
       })),
     pause: () => set({ isPlaying: false }),
-    setPlaybackSpeed: (s) => set({ playbackSpeed: s }),
-    setCameraMode: (m) => set({ cameraMode: m }),
-    setSelectedTrackId: (id) => set({ selectedTrackId: id }),
-    toggleStream: (name) =>
-      set((state) => ({
-        visibleStreams: { ...state.visibleStreams, [name]: !state.visibleStreams[name] },
-      })),
+    setPlaybackSpeed: s => set({ playbackSpeed: s }),
+    setCameraMode: m => set({ cameraMode: m }),
+    setSelectedTrackId: id => set({ selectedTrackId: id }),
+    toggleStream: name =>
+      set(state => ({
+        visibleStreams: { ...state.visibleStreams, [name]: !state.visibleStreams[name] }
+      }))
   }))
 }
 

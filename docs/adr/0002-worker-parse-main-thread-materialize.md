@@ -22,7 +22,7 @@ Split frame processing into two phases:
    - Returns `RawDecodedFrame` — typed arrays + raw image bytes with `_raw` discriminant
    - Uses `Transferable` to transfer ArrayBuffers to the main thread without copying
 
-2. **Main thread** (`SceneDataManager.materializeFrame`):
+2. **Main thread** (`SceneRepository.materializeFrame`):
    - Receives `RawDecodedFrame`
    - Calls `URL.createObjectURL(new Blob([bytes], { type: mimeType }))` for each `image` payload
    - Returns `FrameCacheEntry` with Blob URLs ready for the renderer, tracking all created URLs for revocation on destroy
@@ -42,6 +42,6 @@ The Worker is initialised with `streamsMeta` (from `metadata.glb`) so it can dis
 **Rules out:**
 
 - Do not move `URL.createObjectURL()` into the Worker — Web Workers have no DOM access
-- Do not call `URL.revokeObjectURL()` from the Worker — revocation must happen on the same thread that created the URL; `SceneDataManager.destroy()` handles cleanup
+- Do not call `URL.revokeObjectURL()` from the Worker — revocation must happen on the same thread that created the URL; `SceneRepository.destroy()` handles cleanup
 - The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and the main-thread `materializeFrame`
 - Do not resolve accessor refs on the main thread as an optimisation — the BIN chunk ArrayBuffer is transferred to the Worker; accessing it afterward on the main thread would be a use-after-transfer bug

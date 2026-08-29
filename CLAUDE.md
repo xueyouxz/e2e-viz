@@ -45,7 +45,7 @@ Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → Sc
 Scene bundles are `.glb` files following the NUSVIZ protocol (see `docs/NUSVIZ.md`):
 
 1. **Frame decoder** (`data/FrameDecoder.ts` with `data/workers/frameDecoder.worker.ts`) — keeps Worker and main-thread fallback behavior aligned, resolves typed array accessors, and returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
-2. **Main thread** (`data/SceneDataManager.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles revocation on `destroy()` (ADR-0002).
+2. **Main thread** (`data/SceneRepository.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles fetch abort, cache ownership, and revocation on `destroy()` (ADR-0002).
 
 ### Rendering: Renderer + Registry
 
@@ -63,10 +63,10 @@ A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `
 ## Key constraints
 
 - `URL.createObjectURL()` must stay on the main thread — Workers have no DOM access.
-- `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneDataManager.destroy()` handles this.
+- `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneRepository.destroy()` handles this.
 - Do not add store access inside Renderers.
 - Do not replace `SceneCtx` with a module-level import of SceneStore.
-- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneDataManager.materializeFrame`.
+- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneRepository.materializeFrame`.
 
 ## Type safety conventions
 

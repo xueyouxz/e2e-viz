@@ -19,12 +19,14 @@ interface QueuedFrameLoad {
 }
 
 type LoadingProgressListener = (progress: SceneLoadingProgress) => void
+type CacheChangeListener = () => void
 
 async function fetchArrayBufferWithProgress(
   url: string,
+  signal: AbortSignal,
   onProgress: (loadedBytes: number, totalBytes: number | null) => void
 ): Promise<ArrayBuffer> {
-  const response = await fetch(url)
+  const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`)
 
   const header = response.headers.get('content-length')
@@ -119,8 +121,9 @@ export type FrameCacheEntry = {
   imageUrls: string[]
 }
 
-export class SceneDataManager {
+export class SceneRepository {
   private readonly baseUrl: string
+  private readonly lifecycleAbortController = new AbortController()
   private decoder: FrameDecoder | null = null
   private readonly cache = new Map<number, FrameCacheEntry>()
   private readonly inFlight = new Map<number, Promise<FrameCacheEntry>>()
@@ -129,7 +132,7 @@ export class SceneDataManager {
 
   private messageIndex: MessageIndex | null = null
   private metadataResult: MetadataParseResult | null = null
-  private destroyed = false
+  private isDestroyed = false
   private metadataReadyForProgress = false
   private initialFrameProgress: Pick<SceneLoadingProgress, 'loadedBytes' | 'totalBytes'> = {
     loadedBytes: 0,
@@ -141,8 +144,7 @@ export class SceneDataManager {
     totalBytes: null
   }
   private readonly loadingProgressListeners = new Set<LoadingProgressListener>()
-
-  onCacheUpdate?: () => void
+  private readonly cacheChangeListeners = new Set<CacheChangeListener>()
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
@@ -157,20 +159,22 @@ export class SceneDataManager {
     return end
   }
 
-  getLoadingProgress(): SceneLoadingProgress {
-    return this.loadingProgress
-  }
-
   subscribeLoadingProgress(listener: LoadingProgressListener): () => void {
     this.loadingProgressListeners.add(listener)
     listener(this.loadingProgress)
     return () => this.loadingProgressListeners.delete(listener)
   }
 
+  subscribeCacheChanges(listener: CacheChangeListener): () => void {
+    this.cacheChangeListeners.add(listener)
+    return () => this.cacheChangeListeners.delete(listener)
+  }
+
   async init(): Promise<MetadataParseResult> {
     this.setLoadingProgress({ phase: 'index', loadedBytes: 0, totalBytes: null })
     const indexBuffer = await fetchArrayBufferWithProgress(
       `${this.baseUrl}message_index.json`,
+      this.lifecycleAbortController.signal,
       (loadedBytes, totalBytes) => {
         this.setLoadingProgress({ phase: 'index', loadedBytes, totalBytes })
       }
@@ -183,9 +187,10 @@ export class SceneDataManager {
     // Start fetching frame 0's raw bytes in parallel with metadata.glb.
     // Decoding waits until streamsMeta is available to construct FrameDecoder.
     let frame0BufferPromise: Promise<ArrayBuffer> | null = null
-    if (messages.length > 0 && !this.destroyed) {
+    if (messages.length > 0 && !this.isDestroyed) {
       frame0BufferPromise = fetchArrayBufferWithProgress(
         `${this.baseUrl}${messages[0].file}`,
+        this.lifecycleAbortController.signal,
         (loadedBytes, totalBytes) => {
           this.initialFrameProgress = { loadedBytes, totalBytes }
           if (this.metadataReadyForProgress) {
@@ -193,31 +198,34 @@ export class SceneDataManager {
           }
         }
       )
+      void frame0BufferPromise.catch(() => {})
     }
 
     const metadataBuffer = await fetchArrayBufferWithProgress(
       `${this.baseUrl}${metadataFile}`,
+      this.lifecycleAbortController.signal,
       (loadedBytes, totalBytes) => {
         this.setLoadingProgress({ phase: 'metadata', loadedBytes, totalBytes })
       }
     )
 
+    this.assertActive()
     const result = parseMetadata(metadataBuffer, messages.length, this.messageIndex.log_info)
     this.metadataResult = result
-    if (this.destroyed) throw new Error('SceneDataManager destroyed')
     const decoder = new FrameDecoder(result.metadata.streams)
     this.decoder = decoder
     this.metadataReadyForProgress = true
     this.setLoadingProgress({ phase: 'first-frame', ...this.initialFrameProgress })
 
     // Now enqueue frame 0 decode — both adapters already own streamsMeta.
-    if (frame0BufferPromise && !this.destroyed) {
+    if (frame0BufferPromise && !this.isDestroyed) {
       const frame0Entry: Promise<FrameCacheEntry> = frame0BufferPromise
         .then(buf => {
           this.setLoadingProgress({ phase: 'parsing', ...this.initialFrameProgress })
           return decoder.decode(buf)
         })
         .then(raw => {
+          this.assertActive()
           const { patches, imageUrls } = materializeFrame(raw)
           const entry: FrameCacheEntry = {
             updateType: raw.updateType,
@@ -226,7 +234,7 @@ export class SceneDataManager {
             imageUrls
           }
           this.cache.set(0, entry)
-          this.onCacheUpdate?.()
+          this.notifyCacheChanges()
           this.setLoadingProgress({ phase: 'ready', ...this.initialFrameProgress })
           return entry
         })
@@ -245,6 +253,7 @@ export class SceneDataManager {
   }
 
   async loadFrame(frameIndex: number): Promise<FrameCacheEntry> {
+    this.assertActive()
     const cached = this.cache.get(frameIndex)
     if (cached) return cached
 
@@ -255,14 +264,12 @@ export class SceneDataManager {
       return existing
     }
 
-    if (!this.messageIndex || !this.decoder) throw new Error('SceneDataManager not initialised')
-    if (this.destroyed) throw new Error('SceneDataManager destroyed')
-
+    if (!this.messageIndex || !this.decoder) throw new Error('SceneRepository not initialised')
     return this.enqueueFrameLoad(frameIndex, 'critical')
   }
 
-  prefetch(centerIndex: number): void {
-    if (!this.messageIndex || this.destroyed) return
+  prefetchAround(centerIndex: number): void {
+    if (!this.messageIndex || this.isDestroyed) return
     const total = this.messageIndex.messages.length
 
     const fwdEnd = Math.min(centerIndex + PREFETCH_FORWARD, total - 1)
@@ -281,9 +288,11 @@ export class SceneDataManager {
   }
 
   destroy(): void {
-    this.destroyed = true
+    if (this.isDestroyed) return
+    this.isDestroyed = true
+    this.lifecycleAbortController.abort()
     for (const queued of this.queuedFrameLoads.values()) {
-      queued.reject(new Error('SceneDataManager destroyed'))
+      queued.reject(new Error('SceneRepository destroyed'))
     }
     this.queuedFrameLoads.clear()
     this.decoder?.destroy()
@@ -294,7 +303,10 @@ export class SceneDataManager {
     this.cache.clear()
     if (this.metadataResult) {
       for (const url of this.metadataResult.staticImageUrls) URL.revokeObjectURL(url)
+      this.metadataResult = null
     }
+    this.loadingProgressListeners.clear()
+    this.cacheChangeListeners.clear()
   }
 
   private enqueueFrameLoad(
@@ -324,7 +336,7 @@ export class SceneDataManager {
   }
 
   private drainFrameQueue(): void {
-    while (!this.destroyed && this.activeFrameLoads < MAX_BACKGROUND_FRAME_LOADS) {
+    while (!this.isDestroyed && this.activeFrameLoads < MAX_BACKGROUND_FRAME_LOADS) {
       const next = [...this.queuedFrameLoads.values()].sort((a, b) => {
         if (a.priority === b.priority) return a.frameIndex - b.frameIndex
         return a.priority === 'critical' ? -1 : 1
@@ -346,15 +358,19 @@ export class SceneDataManager {
   }
 
   private async fetchAndMaterializeFrame(frameIndex: number): Promise<FrameCacheEntry> {
-    if (!this.messageIndex || !this.decoder) throw new Error('SceneDataManager not initialised')
-    if (this.destroyed) throw new Error('SceneDataManager destroyed')
+    if (!this.messageIndex || !this.decoder) throw new Error('SceneRepository not initialised')
+    const decoder = this.decoder
+    this.assertActive()
     const entry = this.messageIndex.messages[frameIndex]
     if (!entry) throw new Error(`Frame ${frameIndex} not found`)
 
-    const response = await fetch(`${this.baseUrl}${entry.file}`)
+    const response = await fetch(`${this.baseUrl}${entry.file}`, {
+      signal: this.lifecycleAbortController.signal
+    })
     if (!response.ok) throw new Error(`Failed to fetch frame ${frameIndex}: ${response.status}`)
 
-    const raw = await this.decoder.decode(await response.arrayBuffer())
+    const raw = await decoder.decode(await response.arrayBuffer())
+    this.assertActive()
     const { patches, imageUrls } = materializeFrame(raw)
     const materialized: FrameCacheEntry = {
       updateType: raw.updateType,
@@ -364,7 +380,7 @@ export class SceneDataManager {
     }
 
     this.cache.set(frameIndex, materialized)
-    this.onCacheUpdate?.()
+    this.notifyCacheChanges()
     this.pruneCache(frameIndex)
     return materialized
   }
@@ -386,7 +402,16 @@ export class SceneDataManager {
   }
 
   private setLoadingProgress(progress: SceneLoadingProgress): void {
+    if (this.isDestroyed) return
     this.loadingProgress = progress
     for (const listener of this.loadingProgressListeners) listener(progress)
+  }
+
+  private notifyCacheChanges(): void {
+    for (const listener of this.cacheChangeListeners) listener()
+  }
+
+  private assertActive(): void {
+    if (this.isDestroyed) throw new Error('SceneRepository destroyed')
   }
 }

@@ -2,8 +2,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { createSceneStore } from './store/sceneStore'
 import { SceneCtx, useSceneStore } from './context'
-import { SceneDataManager } from './data/SceneDataManager'
-import { useFrameData } from './hooks/useFrameData'
+import { SceneSession } from './SceneSession'
 import { layerRegistry } from './layerRegistry'
 import { getStyle } from './styleConfig'
 import { CameraController } from './scene/CameraController'
@@ -18,21 +17,19 @@ import { TimelineBar } from './panels/TimelineBar'
 import { SceneLoadingOverlay } from './SceneLoadingOverlay'
 import type { SceneLoadingProgress } from './data/loadingProgress'
 
-interface SceneViewerProps {
+export interface SceneViewerProps {
   sceneUrl: string
 }
 
 // ─── 顶层加载组件 ─────────────────────────────────────────────────────────────
 //
-// 职责：加载场景元数据并初始化 Zustand store，完成后渲染内层组件。
-// store 用 useState 初始化一次（factory 形式），保证同一 sceneUrl
-// 切换时不会复用旧 store 实例（sceneUrl 变化会重新执行 useEffect）。
+// 职责：创建单个 Viewer store，并把 sceneUrl 生命周期交给 SceneSession。
 
 export default function SceneViewer({ sceneUrl }: SceneViewerProps) {
   // createSceneStore 工厂形式：每次组件挂载创建独立 store 实例（ADR-0001）
   const [store] = useState(() => createSceneStore())
-  const [dataManager, setDataManager] = useState<SceneDataManager | null>(null)
-  const [metadataReady, setMetadataReady] = useState(false)
+  const contextValue = useMemo(() => ({ store }), [store])
+  const [sessionReady, setSessionReady] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState<SceneLoadingProgress>({
     phase: 'index',
     loadedBytes: 0,
@@ -40,35 +37,28 @@ export default function SceneViewer({ sceneUrl }: SceneViewerProps) {
   })
   const [error, setError] = useState<string | null>(null)
 
-  // 当 sceneUrl 变化时重新加载：创建新的 SceneDataManager，
-  // 解析 metadata.glb 拿到场景元数据后写入 store，
-  // cancelled flag 防止 sceneUrl 切换时旧请求的回调污染新状态
   useEffect(() => {
-    setMetadataReady(false)
+    setSessionReady(false)
     setError(null)
 
-    const manager = new SceneDataManager(sceneUrl)
-    let cancelled = false
-    const unsubscribe = manager.subscribeLoadingProgress(setLoadingProgress)
-    setDataManager(manager)
+    const session = new SceneSession(sceneUrl, store)
+    let isCurrentSession = true
+    const unsubscribeLoadingProgress = session.subscribeLoadingProgress(setLoadingProgress)
 
-    manager
-      .init()
-      .then(({ metadata, initialStreamState }) => {
-        if (cancelled) return
-        store.getState().setMetadata(metadata, initialStreamState)
-        setMetadataReady(true)
+    session
+      .start()
+      .then(() => {
+        if (isCurrentSession) setSessionReady(true)
       })
-      .catch((err: unknown) => {
-        if (cancelled) return
-        setError(err instanceof Error ? err.message : String(err))
+      .catch((error: unknown) => {
+        if (!isCurrentSession) return
+        setError(error instanceof Error ? error.message : String(error))
       })
 
     return () => {
-      cancelled = true
-      unsubscribe()
-      // destroy 会终止 Worker、撤销所有 Blob URL（ADR-0002）
-      manager.destroy()
+      isCurrentSession = false
+      unsubscribeLoadingProgress()
+      session.destroy()
     }
   }, [sceneUrl, store])
 
@@ -82,12 +72,10 @@ export default function SceneViewer({ sceneUrl }: SceneViewerProps) {
     )
   }
 
-  if (!dataManager || !metadataReady) return <SceneLoadingShell progress={loadingProgress} />
+  if (!sessionReady) return <SceneLoadingShell progress={loadingProgress} />
 
-  // 通过 Context 将 store 和 dataManager 一起下传，
-  // 子组件通过 useSceneStore / useSceneStoreApi 按需订阅，不经过 props drilling
   return (
-    <SceneCtx.Provider value={{ store, dataManager }}>
+    <SceneCtx.Provider value={contextValue}>
       <SceneViewerInner loadingProgress={loadingProgress} />
     </SceneCtx.Provider>
   )
@@ -104,16 +92,6 @@ function SceneLoadingShell({ progress }: { progress: SceneLoadingProgress }) {
       <div className='h-[62px] border-t border-app-border bg-app-surface' />
     </div>
   )
-}
-
-// ─── 帧数据同步组件 ──────────────────────────────────────────────────────────
-//
-// 孤立叶节点：仅调用 useFrameData hook，本身不渲染任何 DOM。
-// 将帧加载引起的 re-render 隔离在此节点，避免污染主布局树。
-
-function FrameDataSync() {
-  useFrameData()
-  return null
 }
 
 // ─── 主内层布局组件 ──────────────────────────────────────────────────────────
@@ -151,9 +129,6 @@ function SceneViewerInner({ loadingProgress }: { loadingProgress: SceneLoadingPr
 
   return (
     <div className='flex h-full w-full flex-col'>
-      {/* 帧数据同步：渲染 null，隔离 frameIndex 变化引起的重渲染 */}
-      <FrameDataSync />
-
       {/* 画布区域：包含三维 Canvas 和所有浮层面板 */}
       <div className='relative min-h-0 flex-1'>
         {streamsOpen && <StreamPanel onClose={() => setStreamsOpen(false)} />}

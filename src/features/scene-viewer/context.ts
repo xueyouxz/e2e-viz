@@ -1,11 +1,9 @@
 import { createContext, useContext } from 'react'
 import { useStore } from 'zustand'
-import type { SceneDataManager } from './data/SceneDataManager'
 import type { SceneState, SceneStore } from './store/sceneStore'
 
 export interface SceneContextValue {
   store: SceneStore
-  dataManager: SceneDataManager
 }
 
 export const SceneCtx = createContext<SceneContextValue | null>(null)

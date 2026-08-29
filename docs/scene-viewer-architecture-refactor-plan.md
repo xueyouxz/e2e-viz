@@ -311,16 +311,16 @@ Scene 切换时重置：
 
 #### 实施
 
-- [ ] 把 `SceneDataManager` 重命名为 `SceneRepository`，先保持行为不变。
-- [ ] repository 的 `fetch` 全部接收生命周期 `AbortSignal`。
-- [ ] 使用 `subscribeCacheChanges(listener)` 代替公开可变字段 `onCacheUpdate`。
-- [ ] 创建 `SceneSession`，内部保存 `latestFrameRequestId` 和 `isDestroyed`。
-- [ ] `SceneSession.start()` 先调用 `resetSceneData()`，再初始化 repository。
-- [ ] session 订阅 store 的 `frameIndex`；请求完成时同时检查 request id、当前 Frame 和销毁状态。
-- [ ] `SceneSession.destroy()` 依次取消订阅、abort fetch、终止 decoder、释放 Blob URL。
-- [ ] `SceneViewer` 只创建 session、订阅加载状态并渲染。
-- [ ] 删除 `useFrameData.ts` 和 `SceneContextValue.dataManager`。
-- [ ] 切换 `sceneUrl` 时复用当前 store 实例，但先完整重置 Scene 数据。
+- [x] 把 `SceneDataManager` 重命名为 `SceneRepository`，先保持行为不变。
+- [x] repository 的 `fetch` 全部接收生命周期 `AbortSignal`。
+- [x] 使用 `subscribeCacheChanges(listener)` 代替公开可变字段 `onCacheUpdate`。
+- [x] 创建 `SceneSession`，内部保存 `latestFrameRequestId` 和 `isDestroyed`。
+- [x] `SceneSession.start()` 先调用 `resetSceneData()`，再初始化 repository。
+- [x] session 订阅 store 的 `frameIndex`；请求完成时同时检查 request id、当前 Frame 和销毁状态。
+- [x] `SceneSession.destroy()` 依次取消订阅、abort fetch、终止 decoder、释放 Blob URL。
+- [x] `SceneViewer` 只创建 session、订阅加载状态并渲染。
+- [x] 删除 `useFrameData.ts` 和 `SceneContextValue.dataManager`。
+- [x] 切换 `sceneUrl` 时复用当前 store 实例，但先完整重置 Scene 数据。
 
 #### 关键函数命名
 
