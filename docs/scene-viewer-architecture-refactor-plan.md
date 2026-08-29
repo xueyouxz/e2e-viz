@@ -385,16 +385,16 @@ refactor(scene-viewer): centralize scene session lifecycle
 
 #### 实施
 
-- [ ] 提取纯函数 `advancePlaybackClock()` 和 `findNearestFrameIndex()`。
-- [ ] 使用真实 timestamps 计算 Frame，不再固定使用 `playbackSpeed * 5`。
-- [ ] 保留 R3F `useFrame` 作为唯一 tick 来源；删除 Timeline 内部 RAF。
-- [ ] 删除 `internalFrame`、`internalPlaying`、`isControlled` 分支。
-- [ ] 删除未使用的 `TimelineMarker`、`PlaybackTimelineOptions` 和自定义 `formatTick` interface。
-- [ ] 把 `TimelineBar` 的 store adapter 吸收到 `PlaybackTimeline`，随后删除 `TimelineBar.tsx`。
-- [ ] 时间轴根节点只订阅低频状态；frame cursor 使用 `store.subscribe()` 更新 `transform`。
-- [ ] 保留文件内私有 `Ruler`、`SliderTrack` 和 `PlayButton`，不把它们拆成独立文件。
-- [ ] 播放到末尾时明确提交最后一个 Frame 并 pause；再次 play 从 0 开始。
-- [ ] seek 时重置 clock anchor，避免下一 tick 跳回旧时间。
+- [x] 提取纯函数 `advancePlaybackClock()` 和 `findNearestFrameIndex()`。
+- [x] 使用真实 timestamps 计算 Frame，不再固定使用 `playbackSpeed * 5`。
+- [x] 保留 R3F `useFrame` 作为唯一 tick 来源；删除 Timeline 内部 RAF。
+- [x] 删除 `internalFrame`、`internalPlaying`、`isControlled` 分支。
+- [x] 删除未使用的 `TimelineMarker`、`PlaybackTimelineOptions` 和自定义 `formatTick` interface。
+- [x] 把 `TimelineBar` 的 store adapter 吸收到 `PlaybackTimeline`，随后删除 `TimelineBar.tsx`。
+- [x] 时间轴根节点只订阅低频状态；frame cursor 使用 `store.subscribe()` 更新 `transform`。
+- [x] 保留文件内私有 `Ruler`、`SliderTrack` 和 `PlayButton`，不把它们拆成独立文件。
+- [x] 播放到末尾时明确提交最后一个 Frame 并 pause；再次 play 从 0 开始。
+- [x] seek 时重置 clock anchor，避免下一 tick 跳回旧时间。
 
 #### 测试
 

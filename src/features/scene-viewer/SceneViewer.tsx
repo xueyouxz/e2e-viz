@@ -13,7 +13,7 @@ import { StreamPanel } from './panels/StreamPanel'
 import { CameraPanel } from './panels/CameraPanel'
 import { StatisticsPanel } from './panels/StatisticsPanel'
 import { PanelToggleBar } from './panels/PanelToggleBar'
-import { TimelineBar } from './panels/TimelineBar'
+import { PlaybackTimeline } from './playback/PlaybackTimeline'
 import { SceneLoadingOverlay } from './SceneLoadingOverlay'
 import type { SceneLoadingProgress } from './data/loadingProgress'
 
@@ -183,7 +183,7 @@ function SceneViewerInner({ loadingProgress }: { loadingProgress: SceneLoadingPr
       </div>
 
       {/* 底部时间轴：独立于画布区域，高度由自身内容决定 */}
-      <TimelineBar />
+      <PlaybackTimeline />
     </div>
   )
 }

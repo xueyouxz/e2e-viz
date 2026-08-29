@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useSceneStoreApi } from '../context'
+import { advancePlaybackClock } from '../playback/PlaybackClock'
 
 /**
  * Zero-output R3F component that wires all scene-level infrastructure effects.
@@ -12,8 +13,8 @@ import { useSceneStoreApi } from '../context'
  * Frame synchronization: drives frame-by-frame playback entirely inside the
  * R3F render loop. Reads all store state via getState() — zero React
  * subscriptions, zero re-renders.
- * nuScenes frame interval ≈ 0.2 s at 5 fps; playbackSpeed × 5 maps delta
- * seconds to frame rate.
+ * Playback uses metadata timestamps, so irregular frame intervals and playback
+ * speed share the same clock semantics as the timeline.
  */
 export function SceneEffects() {
   // ── Shader precompilation (one-time on mount) ──────────────────────────────
@@ -28,30 +29,37 @@ export function SceneEffects() {
 
   // ── Frame synchronization (per-frame) ─────────────────────────────────────
   const store = useSceneStoreApi()
-  const accRef = useRef(0)
-  const lastFrameRef = useRef(-1)
+  const playbackTimeRef = useRef<number | null>(null)
+  const lastObservedFrameRef = useRef(-1)
 
   useFrame((_state, delta) => {
-    const { isPlaying, playbackSpeed, frameIndex, totalFrames } = store.getState()
-
-    // Reset accumulator on external seek (timeline scrub or initial load)
-    if (frameIndex !== lastFrameRef.current) {
-      accRef.current = frameIndex
-      lastFrameRef.current = frameIndex
+    const { isPlaying, playbackSpeed, frameIndex, timestamps } = store.getState()
+    if (!timestamps || timestamps.length === 0) {
+      if (isPlaying) store.getState().pause()
+      return
     }
 
-    if (!isPlaying || totalFrames === 0) return
+    if (frameIndex !== lastObservedFrameRef.current || playbackTimeRef.current === null) {
+      playbackTimeRef.current = timestamps[frameIndex] ?? timestamps[0] ?? 0
+      lastObservedFrameRef.current = frameIndex
+    }
 
-    accRef.current += delta * playbackSpeed * 5
+    if (!isPlaying) return
 
-    const nextFrame = Math.floor(accRef.current)
-    if (nextFrame > frameIndex && nextFrame < totalFrames) {
-      store.getState().setFrameIndex(nextFrame)
-      lastFrameRef.current = nextFrame
-    } else if (accRef.current >= totalFrames) {
+    const result = advancePlaybackClock(playbackTimeRef.current, delta, playbackSpeed, timestamps)
+    playbackTimeRef.current = result.timeSeconds
+
+    if (result.frameIndex !== frameIndex) {
+      store.getState().setFrameIndex(result.frameIndex)
+      lastObservedFrameRef.current = result.frameIndex
+    }
+    if (result.isAtEnd) {
+      const finalFrameIndex = timestamps.length - 1
+      if (store.getState().frameIndex !== finalFrameIndex) {
+        store.getState().setFrameIndex(finalFrameIndex)
+      }
+      lastObservedFrameRef.current = finalFrameIndex
       store.getState().pause()
-      accRef.current = totalFrames - 1
-      lastFrameRef.current = totalFrames - 1
     }
   })
 
