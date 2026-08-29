@@ -18,6 +18,17 @@ const META: SceneMetadata = {
 }
 
 describe('createSceneStore', () => {
+  it('creates isolated state for separate viewer instances', () => {
+    const first = createSceneStore()
+    const second = createSceneStore()
+
+    first.getState().setFrameIndex(7)
+    first.getState().setCameraMode('bev')
+
+    expect(second.getState().frameIndex).toBe(0)
+    expect(second.getState().cameraMode).toBe('free')
+  })
+
   it('creates a store with correct initial state', () => {
     const store = createSceneStore()
     const state = store.getState()
@@ -88,6 +99,22 @@ describe('createSceneStore', () => {
       })
       expect(store.getState().streamState['/lidar']).toBeDefined()
       expect(store.getState().streamState['/boxes']).toBeDefined()
+    })
+
+    it('COMPLETE_STATE removes dynamic streams omitted from the new frame', () => {
+      const store = createSceneStore()
+      store.getState().setMetadata(META, {})
+      store.getState().setFrame('INCREMENTAL', null, {
+        '/lidar': {
+          type: 'point',
+          points: new Float32Array([1, 2, 3]),
+          intensity: null
+        }
+      })
+
+      store.getState().setFrame('COMPLETE_STATE', null, {})
+
+      expect(store.getState().streamState['/lidar']).toBeUndefined()
     })
 
     it('INCREMENTAL merges patches into existing streamState', () => {
