@@ -15,7 +15,7 @@ Each frame is hundreds of KB to several MB. Decoding on the main thread blocks r
 
 Split frame processing into two phases:
 
-1. **Worker** (`messageParse.worker.ts` → `MessageParser.ts`):
+1. **Worker** (`frameDecoder.worker.ts` → `FrameDecoder.ts`):
    - Parses the GLB binary container (`GlbReader.parseGlb`)
    - Resolves all `#/accessors/N` JSON Pointer refs into typed arrays (`Float32Array`, `Uint32Array`)
    - Resolves `#/images/N` refs into raw `ArrayBuffer` bytes
@@ -27,7 +27,7 @@ Split frame processing into two phases:
    - Calls `URL.createObjectURL(new Blob([bytes], { type: mimeType }))` for each `image` payload
    - Returns `FrameCacheEntry` with Blob URLs ready for the renderer, tracking all created URLs for revocation on destroy
 
-Fallback: if `Worker` is unavailable, `SceneDataManager` calls `parseMessage()` directly on the main thread.
+Fallback: if `Worker` is unavailable, `FrameDecoder` calls `decodeFrame()` directly on the main thread with the same `streamsMeta`.
 
 The Worker is initialised with `streamsMeta` (from `metadata.glb`) so it can disambiguate `polyline` vs `polygon` payloads — both use identical `{ vertices, offsets, count }` shapes in the protocol; only `StreamMeta.type` distinguishes them.
 
@@ -43,5 +43,5 @@ The Worker is initialised with `streamsMeta` (from `metadata.glb`) so it can dis
 
 - Do not move `URL.createObjectURL()` into the Worker — Web Workers have no DOM access
 - Do not call `URL.revokeObjectURL()` from the Worker — revocation must happen on the same thread that created the URL; `SceneDataManager.destroy()` handles cleanup
-- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `workerMessages.ts`, `MessageParser.ts`, and the main-thread `materializeFrame`
+- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and the main-thread `materializeFrame`
 - Do not resolve accessor refs on the main thread as an optimisation — the BIN chunk ArrayBuffer is transferred to the Worker; accessing it afterward on the main thread would be a use-after-transfer bug

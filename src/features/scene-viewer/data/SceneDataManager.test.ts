@@ -1,18 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SceneDataManager } from './SceneDataManager'
-import type * as MessageParserModule from './MessageParser'
 import type { MetadataParseResult } from './MetadataParser'
 import type { RawDecodedFrame, SceneMetadata } from '../types'
 
-const parserMocks = vi.hoisted(() => ({
+const decoderMocks = vi.hoisted(() => ({
   parseMetadata: vi.fn(),
-  parseMessage: vi.fn()
+  decode: vi.fn(),
+  destroy: vi.fn()
 }))
 
-vi.mock('./MetadataParser', () => ({ parseMetadata: parserMocks.parseMetadata }))
-vi.mock('./MessageParser', async importOriginal => {
-  const original = await importOriginal<typeof MessageParserModule>()
-  return { ...original, parseMessage: parserMocks.parseMessage }
+vi.mock('./MetadataParser', () => ({ parseMetadata: decoderMocks.parseMetadata }))
+vi.mock('./FrameDecoder', () => {
+  return {
+    FrameDecoder: class {
+      decode = decoderMocks.decode
+      destroy = decoderMocks.destroy
+    }
+  }
 })
 
 const encoder = new TextEncoder()
@@ -132,7 +136,6 @@ async function initManager(manager: SceneDataManager): Promise<void> {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('Worker', undefined)
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:fixture')
@@ -141,8 +144,8 @@ beforeEach(() => {
     configurable: true,
     value: vi.fn()
   })
-  parserMocks.parseMetadata.mockReturnValue(metadataResult)
-  parserMocks.parseMessage.mockImplementation((buffer: ArrayBuffer) => {
+  decoderMocks.parseMetadata.mockReturnValue(metadataResult)
+  decoderMocks.decode.mockImplementation((buffer: ArrayBuffer) => {
     return frame(new Uint8Array(buffer)[0] ?? 0)
   })
 })

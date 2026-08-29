@@ -22,7 +22,7 @@ pnpm sync:data    # upload public/data + nusviz-val.zip to private OSS with ossu
 Run a single test file:
 
 ```bash
-pnpm vitest run src/features/scene-viewer/data/MessageParser.test.ts
+pnpm vitest run src/features/scene-viewer/data/FrameDecoder.test.ts
 ```
 
 Path alias `@/` maps to `src/`.
@@ -44,7 +44,7 @@ Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → Sc
 
 Scene bundles are `.glb` files following the NUSVIZ protocol (see `docs/NUSVIZ.md`):
 
-1. **Web Worker** (`data/workers/messageParse.worker.ts` → `data/MessageParser.ts`) — parses the GLB binary, resolves typed array accessors, returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
+1. **Frame decoder** (`data/FrameDecoder.ts` with `data/workers/frameDecoder.worker.ts`) — keeps Worker and main-thread fallback behavior aligned, resolves typed array accessors, and returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
 2. **Main thread** (`data/SceneDataManager.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles revocation on `destroy()` (ADR-0002).
 
 ### Rendering: Renderer + Registry
@@ -66,7 +66,7 @@ A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `
 - `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneDataManager.destroy()` handles this.
 - Do not add store access inside Renderers.
 - Do not replace `SceneCtx` with a module-level import of SceneStore.
-- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `workerMessages.ts`, `MessageParser.ts`, and `SceneDataManager.materializeFrame`.
+- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneDataManager.materializeFrame`.
 
 ## Type safety conventions
 

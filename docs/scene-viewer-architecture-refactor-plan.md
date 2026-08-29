@@ -221,13 +221,13 @@ test(scene-viewer): lock behavior and hot-path invariants
 
 #### 实施
 
-- [ ] 先添加 fallback/Worker parity 测试，使用同一 polygon fixture。
-- [ ] 把 `streamsMeta` 变成 `FrameDecoder` 构造时必需数据，消除先 init 后 parse 的 temporal seam。
-- [ ] fallback 显式调用 `decodeFrame(buffer, streamsMeta)`。
-- [ ] Worker init 消息在 decoder 内部发送，调用方不再单独调用 `setStreamsMeta()`。
-- [ ] 保留 Transferable 收集和传递逻辑。
-- [ ] Worker error、destroy 和 pending promise rejection 使用明确的 `FrameDecoderDestroyedError` 或统一 `Error` 文本，不静默挂起。
-- [ ] 同一提交完成 import、Worker URL、测试路径和旧文件删除。
+- [x] 先添加 fallback/Worker parity 测试，使用同一 polygon fixture。
+- [x] 把 `streamsMeta` 变成 `FrameDecoder` 构造时必需数据，消除先 init 后 parse 的 temporal seam。
+- [x] fallback 显式调用 `decodeFrame(buffer, streamsMeta)`。
+- [x] Worker init 消息在 decoder 内部发送，调用方不再单独调用 `setStreamsMeta()`。
+- [x] 保留 Transferable 收集和传递逻辑。
+- [x] Worker error、destroy 和 pending promise rejection 使用明确的 `FrameDecoderDestroyedError` 或统一 `Error` 文本，不静默挂起。
+- [x] 同一提交完成 import、Worker URL、测试路径和旧文件删除。
 
 #### 测试
 

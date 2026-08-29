@@ -1,19 +1,13 @@
 import { parseMetadata } from './MetadataParser'
-import { parseMessage } from './MessageParser'
-import { isWorkerParseResponse } from './workers/workerMessages'
+import { FrameDecoder } from './FrameDecoder'
 import type { SceneLoadingProgress } from './loadingProgress'
-import type { EgoPose, MessageIndex, RawDecodedFrame, StreamMeta, StreamPayload } from '../types'
+import type { EgoPose, MessageIndex, RawDecodedFrame, StreamPayload } from '../types'
 import type { MetadataParseResult } from './MetadataParser'
 
 const PREFETCH_BACK = 15
 const PREFETCH_FORWARD = 10
 const MAX_CACHED_FRAMES = PREFETCH_BACK + PREFETCH_FORWARD + 1 // 26 slots
 const MAX_BACKGROUND_FRAME_LOADS = 2
-
-interface PendingParse {
-  resolve: (frame: RawDecodedFrame) => void
-  reject: (err: Error) => void
-}
 
 type FrameLoadPriority = 'critical' | 'background'
 
@@ -65,64 +59,6 @@ async function fetchArrayBufferWithProgress(
   }
   onProgress(loadedBytes, totalBytes ?? loadedBytes)
   return combined.buffer
-}
-
-class MessageParserWorker {
-  private worker: Worker | null = null
-  private nextId = 1
-  private pending = new Map<number, PendingParse>()
-
-  constructor() {
-    if (typeof Worker === 'undefined') return
-    try {
-      this.worker = new Worker(new URL('./workers/messageParse.worker.ts', import.meta.url), {
-        type: 'module'
-      })
-      this.worker.onmessage = (e: MessageEvent<unknown>) => {
-        if (!isWorkerParseResponse(e.data)) return
-        const { id } = e.data
-        const p = this.pending.get(id)
-        if (!p) return
-        this.pending.delete(id)
-        if (e.data.ok) {
-          p.resolve(e.data.frame)
-        } else {
-          p.reject(new Error(e.data.error))
-        }
-      }
-      this.worker.onerror = e => {
-        this.rejectAll(new Error(e.message || 'Worker error'))
-      }
-    } catch {
-      this.worker = null
-    }
-  }
-
-  setStreamsMeta(streamsMeta: Record<string, StreamMeta>): void {
-    this.worker?.postMessage({ type: 'init', streamsMeta })
-  }
-
-  parse(buffer: ArrayBuffer): Promise<RawDecodedFrame> {
-    if (!this.worker) {
-      return Promise.resolve(parseMessage(buffer))
-    }
-    const id = this.nextId++
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
-      this.worker!.postMessage({ type: 'parse', id, buffer }, [buffer])
-    })
-  }
-
-  destroy() {
-    this.rejectAll(new Error('Worker destroyed'))
-    this.worker?.terminate()
-    this.worker = null
-  }
-
-  private rejectAll(err: Error) {
-    for (const p of this.pending.values()) p.reject(err)
-    this.pending.clear()
-  }
 }
 
 function materializeFrame(raw: RawDecodedFrame): {
@@ -185,14 +121,13 @@ export type FrameCacheEntry = {
 
 export class SceneDataManager {
   private readonly baseUrl: string
-  private readonly worker = new MessageParserWorker()
+  private decoder: FrameDecoder | null = null
   private readonly cache = new Map<number, FrameCacheEntry>()
   private readonly inFlight = new Map<number, Promise<FrameCacheEntry>>()
   private readonly queuedFrameLoads = new Map<number, QueuedFrameLoad>()
   private activeFrameLoads = 0
 
   private messageIndex: MessageIndex | null = null
-  private streamsMeta: Record<string, StreamMeta> = {}
   private metadataResult: MetadataParseResult | null = null
   private destroyed = false
   private metadataReadyForProgress = false
@@ -246,7 +181,7 @@ export class SceneDataManager {
     const metadataFile = this.messageIndex.metadata ?? 'metadata.glb'
 
     // Start fetching frame 0's raw bytes in parallel with metadata.glb.
-    // We do NOT parse yet — parsing must happen after setStreamsMeta.
+    // Decoding waits until streamsMeta is available to construct FrameDecoder.
     let frame0BufferPromise: Promise<ArrayBuffer> | null = null
     if (messages.length > 0 && !this.destroyed) {
       frame0BufferPromise = fetchArrayBufferWithProgress(
@@ -268,21 +203,19 @@ export class SceneDataManager {
     )
 
     const result = parseMetadata(metadataBuffer, messages.length, this.messageIndex.log_info)
-    this.streamsMeta = result.metadata.streams
     this.metadataResult = result
-
-    // Send streamsMeta to worker now. Worker message ordering guarantees this
-    // init message is processed before any subsequent parse requests.
-    this.worker.setStreamsMeta(this.streamsMeta)
+    if (this.destroyed) throw new Error('SceneDataManager destroyed')
+    const decoder = new FrameDecoder(result.metadata.streams)
+    this.decoder = decoder
     this.metadataReadyForProgress = true
     this.setLoadingProgress({ phase: 'first-frame', ...this.initialFrameProgress })
 
-    // Now enqueue frame 0 parse — worker already has streamsMeta.
+    // Now enqueue frame 0 decode — both adapters already own streamsMeta.
     if (frame0BufferPromise && !this.destroyed) {
       const frame0Entry: Promise<FrameCacheEntry> = frame0BufferPromise
         .then(buf => {
           this.setLoadingProgress({ phase: 'parsing', ...this.initialFrameProgress })
-          return this.worker.parse(buf)
+          return decoder.decode(buf)
         })
         .then(raw => {
           const { patches, imageUrls } = materializeFrame(raw)
@@ -322,7 +255,7 @@ export class SceneDataManager {
       return existing
     }
 
-    if (!this.messageIndex) throw new Error('SceneDataManager not initialised')
+    if (!this.messageIndex || !this.decoder) throw new Error('SceneDataManager not initialised')
     if (this.destroyed) throw new Error('SceneDataManager destroyed')
 
     return this.enqueueFrameLoad(frameIndex, 'critical')
@@ -353,7 +286,8 @@ export class SceneDataManager {
       queued.reject(new Error('SceneDataManager destroyed'))
     }
     this.queuedFrameLoads.clear()
-    this.worker.destroy()
+    this.decoder?.destroy()
+    this.decoder = null
     for (const entry of this.cache.values()) {
       for (const url of entry.imageUrls) URL.revokeObjectURL(url)
     }
@@ -412,7 +346,7 @@ export class SceneDataManager {
   }
 
   private async fetchAndMaterializeFrame(frameIndex: number): Promise<FrameCacheEntry> {
-    if (!this.messageIndex) throw new Error('SceneDataManager not initialised')
+    if (!this.messageIndex || !this.decoder) throw new Error('SceneDataManager not initialised')
     if (this.destroyed) throw new Error('SceneDataManager destroyed')
     const entry = this.messageIndex.messages[frameIndex]
     if (!entry) throw new Error(`Frame ${frameIndex} not found`)
@@ -420,7 +354,7 @@ export class SceneDataManager {
     const response = await fetch(`${this.baseUrl}${entry.file}`)
     if (!response.ok) throw new Error(`Failed to fetch frame ${frameIndex}: ${response.status}`)
 
-    const raw = await this.worker.parse(await response.arrayBuffer())
+    const raw = await this.decoder.decode(await response.arrayBuffer())
     const { patches, imageUrls } = materializeFrame(raw)
     const materialized: FrameCacheEntry = {
       updateType: raw.updateType,
