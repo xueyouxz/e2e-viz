@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { projectionDataLoader } from './projectionData'
 import type { ProjectionMapPoint } from '../types'
 
+export function preloadProjectionMapData(): Promise<void> {
+  return projectionDataLoader.load().then(() => undefined)
+}
+
 export function useProjectionMapData() {
   const cached = projectionDataLoader.peek()
   const [points, setPoints] = useState<ProjectionMapPoint[]>(cached?.scenes ?? [])

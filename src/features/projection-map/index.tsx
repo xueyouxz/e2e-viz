@@ -2,8 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { ProjectionMapView } from './components/ProjectionMapView'
 import { SceneListPanel } from './components/SceneListPanel'
 import { glyphAtlasLoader } from './glyph/glyphAtlas'
-import { projectionDataLoader } from './data/projectionData'
-import { useProjectionMapData } from './data/useProjectionMapData'
+import { preloadProjectionMapData, useProjectionMapData } from './data/useProjectionMapData'
 import { sceneAvailabilityProbe, type SceneAvailability } from './data/sceneAvailability'
 import type { ProjectionMapPoint } from './types'
 
@@ -13,7 +12,7 @@ const SceneViewer = lazy(() =>
 
 // The projection and atlas are independent. Start both as soon as this route
 // module is evaluated instead of waiting for a component effect waterfall.
-void Promise.allSettled([projectionDataLoader.load(), glyphAtlasLoader.load()])
+void Promise.allSettled([preloadProjectionMapData(), glyphAtlasLoader.load()])
 
 const cls = {
   page: 'relative flex h-screen w-full flex-col overflow-hidden',

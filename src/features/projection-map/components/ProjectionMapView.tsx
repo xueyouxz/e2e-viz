@@ -16,6 +16,17 @@ import {
   resolveGlyphCanvasPixelRatio,
   type GlyphScreenPoint
 } from '../glyph/glyphCanvasRenderer'
+import {
+  VIEWBOX_HEIGHT,
+  VIEWBOX_WIDTH,
+  buildGridIndex,
+  computeFitTransform,
+  pointInPolygon,
+  polygonPath,
+  reprojectPolygon,
+  snapGridScale
+} from '../spatial'
+import type { ScalePair, Vec2, Viewport } from '../spatial'
 import type { ProjectionMapPoint, SplitName } from '../types'
 
 const cls = {
@@ -48,26 +59,7 @@ type ProjectionMapViewProps = {
   onSelectionChange?: (scenes: ProjectionMapPoint[]) => void
 }
 
-// 只存放缩放变换的三个参数（k 缩放比、tx/ty 平移量），
-// 从 d3.ZoomTransform 中提取后写入 React state，驱动 LOD 切换和视口裁剪。
-// x0/x1/y0/y1 等边界字段从不被读取，不纳入类型以避免冗余计算。
-type Viewport = {
-  k: number // 缩放系数，初始为 1
-  tx: number // X 轴平移量（viewBox 单位）
-  ty: number // Y 轴平移量（viewBox 单位）
-}
-
-type ScalePair = {
-  x: d3.ScaleLinear<number, number>
-  y: d3.ScaleLinear<number, number>
-}
-
 // ─── 全局常量 ─────────────────────────────────────────────────────────────────
-
-// SVG viewBox 固定为逻辑分辨率，独立于屏幕物理像素。
-// 所有坐标计算均在此空间内完成，CSS 负责将 SVG 拉伸到容器。
-const VIEWBOX_WIDTH = 1280
-const VIEWBOX_HEIGHT = 760
 
 // 散点图四边留白，确保极端数据点不贴边
 const CHART_PADDING = 18
@@ -76,16 +68,13 @@ const CHART_PADDING = 18
 // 缩放时由 D3 在 zoom 回调里实时更新，保持屏幕上的物理半径恒定
 const POINT_RADIUS = 2
 
-// glyph 图片尺寸（像素）；CELL_SIZE 决定同一缩放级别下相邻 glyph 的最小间距
+// glyph 图片尺寸（像素）
 const MAP_GLYPH_SIZE = 50
-const CELL_SIZE = 80
 
 // matplotlib tab10 调色板的 C0/C1，学术图表标准色
 const SPLIT_COLORS: Record<SplitName, string> = { train: '#1f77b4', val: '#d62728' }
 
 // ─── Lasso 工具辅助函数 ──────────────────────────────────────────────────────
-
-type Vec2 = [number, number]
 
 /**
  * 将指针事件的 clientX/Y（屏幕坐标）转换为 SVG viewBox 坐标。
@@ -111,70 +100,6 @@ function toViewBox(svg: SVGSVGElement, clientX: number, clientY: number): Vec2 {
   ]
 }
 
-/**
- * 射线法（Ray Casting）判断点是否在多边形内部。
- *
- * 原理：从测试点 (px, py) 向右发射一条水平射线，统计它与多边形各边的交叉次数。
- * 奇数次 → 点在内部；偶数次 → 点在外部。
- * 每次迭代检查多边形第 j→i 条边是否与射线相交：
- *   1. yi > py !== yj > py  确保边跨越 py 所在水平线（避免顶点被计算两次）
- *   2. 通过线段参数方程计算交点 x，若交点在测试点右侧则翻转 inside 标志
- */
-function pointInPolygon(px: number, py: number, poly: Vec2[]): boolean {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i],
-      [xj, yj] = poly[j]
-    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-
-/**
- * 将 Vec2 序列编码为 SVG path `d` 属性字符串（已闭合）。
- * 首点用 M（moveto），其余用 L（lineto），末尾加 Z 闭合路径。
- * 坐标保留 1 位小数，在视觉精度和字符串长度之间取得平衡。
- */
-function polyToPathD(poly: Vec2[]): string {
-  if (poly.length < 2) return ''
-  return poly.map((v, i) => `${i ? 'L' : 'M'}${v[0].toFixed(1)},${v[1].toFixed(1)}`).join('') + 'Z'
-}
-
-// 框选完成后自动缩放时，在选中区域包围盒四周额外留白（viewBox 单位），
-// 避免边缘 glyph 被切割
-const FIT_PADDING = 72
-
-/**
- * 计算将给定点集居中填充到视口的 ZoomTransform。
- *
- * 步骤：
- * 1. 将所有点投影到 screen 坐标，求包围盒 (x0,y0)-(x1,y1)
- * 2. 加上 FIT_PADDING 得到目标显示区域尺寸 (bw, bh)
- * 3. 选择能让区域完整显示的最小缩放系数 k（不超过最大缩放 8）
- * 4. 平移量 = 视口中心 - 数据中心 × k，使数据居中
- *
- * 返回值可直接传给 d3.zoom().transform() 驱动动画。
- */
-function computeFitTransform(pts: ProjectionMapPoint[], sc: ScalePair): d3.ZoomTransform {
-  const xs = pts.map(p => sc.x(p.tsne_comp1))
-  const ys = pts.map(p => sc.y(p.tsne_comp2))
-  const x0 = Math.min(...xs),
-    x1 = Math.max(...xs)
-  const y0 = Math.min(...ys),
-    y1 = Math.max(...ys)
-  const bw = Math.max(x1 - x0, 1) + FIT_PADDING * 2
-  const bh = Math.max(y1 - y0, 1) + FIT_PADDING * 2
-  const k = Math.min(VIEWBOX_WIDTH / bw, VIEWBOX_HEIGHT / bh, 8)
-  const cx = (x0 + x1) / 2,
-    cy = (y0 + y1) / 2
-  return d3.zoomIdentity.translate(VIEWBOX_WIDTH / 2 - cx * k, VIEWBOX_HEIGHT / 2 - cy * k).scale(k)
-}
-
-// 将数据空间多边形重投影到当前 screen 空间，供 lasso 路径绘制和命中检测使用
-function reprojectLasso(dataPoly: Vec2[], sc: ScalePair, t: d3.ZoomTransform): Vec2[] {
-  return dataPoly.map(([dx, dy]): Vec2 => [sc.x(dx) * t.k + t.x, sc.y(dy) * t.k + t.y])
-}
-
 // ─── Grid / LOD 辅助函数 ──────────────────────────────────────────────────────
 
 // 将 ZoomTransform 格式化为 SVG transform 属性字符串，用于直接写入 DOM（非 React 渲染路径）
@@ -185,77 +110,6 @@ function formatTransform(t: d3.ZoomTransform): string {
 // 从 ZoomTransform 提取 Viewport state 所需的三个字段
 function computeViewport(t: d3.ZoomTransform): Viewport {
   return { k: t.k, tx: t.x, ty: t.y }
-}
-
-/**
- * 将连续的缩放系数 k 吸附到最近的离散 LOD 级别。
- *
- * 级别序列为 2^(n/4)（每隔 1/4 octave 一级），即相邻两级之比为 2^(1/4) ≈ 1.19。
- * 吸附公式：先取 log₂(k) × 4，四舍五入到整数，再还原 → 2^(round/4)
- *
- * 使用离散级别而非连续 k 的原因：
- * - 连续变化会导致每帧都重建 gridCells，带来大量 GC 压力
- * - 离散级别 + useMemo 依赖检测，只在跨越级别边界时重建一次
- */
-function snapGridK(k: number): number {
-  return Math.pow(2, Math.round(Math.log2(k) * 4) / 4)
-}
-
-// 预计算所有 LOD 级别对应的 snappedK 值（i 从 0 到 20，对应 k ≈ 0.063 ~ 32）。
-// 在模块加载时一次性生成，buildGridIndex 遍历此列表为每个级别预构建网格索引。
-const SNAP_LEVELS: readonly number[] = Array.from({ length: 21 }, (_, i) =>
-  Math.pow(2, (i - 4) / 4)
-)
-
-// GridIndex：外层 Map 的键为 snappedK，内层 Map 的键为 "ci,cj" 网格坐标，值为该格的代表点
-type GridIndex = Map<number, Map<string, ProjectionMapPoint>>
-
-/**
- * 为给定点集在所有 LOD 级别上预构建网格索引。
- *
- * 为什么要预构建？
- * 缩放时 snappedK 会在离散级别间跳变，若每次跳变都重新遍历全部数据点会有延迟。
- * 预构建后切换级别只需 O(1) 的 Map.get()，代价是 O(levels × points) 的初始化开销，
- * 但 levels 固定为 21，属于可接受的一次性成本。
- */
-function buildGridIndex(pts: ProjectionMapPoint[], sc: ScalePair): GridIndex {
-  const index: GridIndex = new Map()
-  for (const k of SNAP_LEVELS) index.set(k, computeGridCells(pts, sc, k))
-  return index
-}
-
-/**
- * 在给定缩放级别 k 下，将点集划分到固定尺寸（CELL_SIZE）的网格，
- * 每格仅保留距格心最近的一个点，作为该格的"代表 glyph"。
- *
- * 核心逻辑：
- * 1. 将每个点映射到 scaled screen 空间（坐标 × k）
- * 2. 整除 CELL_SIZE 得到格子索引 (ci, cj)
- * 3. 计算点到格心的距离平方 d2
- * 4. 用 best Map 记录每格当前最近点，遍历完成后提取结果
- *
- * 效果：保证相邻 glyph 在屏幕上至少间隔 CELL_SIZE/k 个数据坐标单位，
- * 从而避免高密度区域的 glyph 重叠。
- */
-function computeGridCells(
-  points: ProjectionMapPoint[],
-  sc: ScalePair,
-  k: number
-): Map<string, ProjectionMapPoint> {
-  const best = new Map<string, { point: ProjectionMapPoint; dist2: number }>()
-  for (const point of points) {
-    const sx = sc.x(point.tsne_comp1) * k
-    const sy = sc.y(point.tsne_comp2) * k
-    const ci = Math.floor(sx / CELL_SIZE),
-      cj = Math.floor(sy / CELL_SIZE)
-    const key = `${ci},${cj}`
-    const d2 = (sx - (ci + 0.5) * CELL_SIZE) ** 2 + (sy - (cj + 0.5) * CELL_SIZE) ** 2
-    const ex = best.get(key)
-    if (!ex || d2 < ex.dist2) best.set(key, { point, dist2: d2 })
-  }
-  const result = new Map<string, ProjectionMapPoint>()
-  for (const [key, { point }] of best) result.set(key, point)
-  return result
 }
 
 // Lasso 工具按钮图标，定义在组件外部避免每次渲染重新创建函数对象
@@ -440,7 +294,7 @@ export function ProjectionMapView({
     [valPoints, trainPoints, scales]
   )
 
-  const snappedK = snapGridK(viewport.k)
+  const snappedK = snapGridScale(viewport.k)
 
   // 合并所有 glyph 模式 split 在当前 LOD 的网格格子；same cell 先写先得
   const gridCells = useMemo(() => {
@@ -590,7 +444,7 @@ export function ProjectionMapView({
     const t = transformRef.current
     const sc = scalesRef.current
     if (!sc) return
-    const screenPoly = reprojectLasso(dp, sc, t)
+    const screenPoly = reprojectPolygon(dp, sc, t)
     const selected = points.filter(p =>
       pointInPolygon(sc.x(p.tsne_comp1) * t.k + t.x, sc.y(p.tsne_comp2) * t.k + t.y, screenPoly)
     )
@@ -647,13 +501,13 @@ export function ProjectionMapView({
 
         const dp = lassoDataPolyRef.current
         if (dp.length > 0 && sc && lassoPathRef.current) {
-          lassoPathRef.current.setAttribute('d', polyToPathD(reprojectLasso(dp, sc, t)))
+          lassoPathRef.current.setAttribute('d', polygonPath(reprojectPolygon(dp, sc, t)))
         }
 
         // ── 条件触发 React 重渲染 ─────────────────────────────────────────────
         // snappedK 跨级时更新 React 状态；rAF 去抖合并快速缩放的重渲染。
-        const prevSnap = snapGridK(prevT.k)
-        const newSnap = snapGridK(t.k)
+        const prevSnap = snapGridScale(prevT.k)
+        const newSnap = snapGridScale(t.k)
         if (newSnap !== prevSnap) {
           if (zoomRafRef.current !== null) cancelAnimationFrame(zoomRafRef.current)
           zoomRafRef.current = requestAnimationFrame(() => {
@@ -747,7 +601,7 @@ export function ProjectionMapView({
     }
     if (!isDrawingRef.current || !svgRef.current || !lassoPathRef.current) return
     lassoDraftRef.current.push(toViewBox(svgRef.current, e.clientX, e.clientY))
-    lassoPathRef.current.setAttribute('d', polyToPathD(lassoDraftRef.current))
+    lassoPathRef.current.setAttribute('d', polygonPath(lassoDraftRef.current))
   }
 
   function handlePointerUp(e: React.PointerEvent<SVGSVGElement>) {
