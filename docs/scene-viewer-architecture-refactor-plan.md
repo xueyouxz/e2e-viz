@@ -18,7 +18,7 @@
 - 保持每个 `SceneViewer` 使用独立 Zustand store。
 - 保持 Worker 解码、主线程创建 Blob URL。
 - 保持 Renderer 直接管理 TypedArray、Three.js 对象和释放过程。
-- 保持 `layerRegistry`、Worker IPC 和纯数学函数等有效 seam。
+- 保持 `rendererRegistry`、Worker IPC 和纯数学函数等有效 seam。
 
 本方案不修改 NUSVIZ 协议，不迁移渲染框架，不引入新的状态管理库。
 
@@ -72,7 +72,7 @@ src/features/scene-viewer/
 ├── SceneSession.ts
 ├── context.ts
 ├── index.ts
-├── layerRegistry.ts
+├── rendererRegistry.ts
 ├── store/
 │   ├── sceneStore.ts
 │   └── sceneStore.test.ts
@@ -94,7 +94,7 @@ src/features/scene-viewer/
 │   └── PlaybackTimeline.test.tsx
 ├── camera/
 │   ├── CameraPanel.tsx
-│   ├── CameraOverlayCanvas.tsx
+│   ├── cameraViewport.ts
 │   ├── CameraOverlayProjector.ts
 │   ├── CameraOverlayProjector.test.ts
 │   ├── projection.ts
@@ -546,7 +546,7 @@ perf(scene-viewer): move renderer updates off the react hot path
 #### 当前问题
 
 - `useCameraProjectedBoxes` 每 Frame 创建 center/size/rotation tuple、结果数组和 wireframe 对象。
-- `CameraPanel` 与 `CameraOverlayCanvas` 分别计算 cover viewport transform。
+- `CameraPanel` 与旧 Canvas helper 分别计算 cover viewport transform。
 - hit test 重新过滤 points 并计算 bbox，绘制和选取可能使用不同几何。
 - 六路相机由父级一次性 React 更新。
 
@@ -588,7 +588,7 @@ perf(scene-viewer): move renderer updates off the react hot path
 - [x] 创建 `CameraOverlayProjector.ts`，迁移现有投影行为并保持输出一致。
 - [x] `ProjectedBox3DWireframe` 增加投影时生成的 image-space bounds，避免 hit test 重算。
 - [x] 提取纯函数 `computeViewportTransform()` 和 `pickTrackAtViewportPoint()`。
-- [x] `CameraOverlayCanvas` 使用已经计算的 viewport transform 和共享 frame 数据。
+- [x] `cameraViewport` 使用已经计算的 viewport transform 和共享 frame 数据。
 - [x] 将六路 cell 收敛为文件内私有 `CameraViewport`。
 - [x] 订阅只覆盖 camera image、cuboid payload、egoPose、camera calibration 和 selection。
 - [x] 高频 overlay 使用 canvas imperative draw；面板结构不随 Frame 重建。
@@ -643,7 +643,7 @@ perf(scene-viewer): consolidate camera overlay projection and picking
 
 #### 必须保留的 seam
 
-- `layerRegistry`：NUSVIZ `StreamType` 到 Renderer 的集中映射。
+- `rendererRegistry`：NUSVIZ `StreamType` 到 Renderer 的集中映射。
 - `frameDecoderMessages.ts`：Worker host 与 worker 的 IPC contract。
 - Worker decode 与主线程 materialize：平台能力不同。
 - per-instance Scene store：多 Viewer 隔离。
@@ -666,7 +666,7 @@ export type { SceneViewerProps } from './SceneViewer'
 - `useSceneStoreApi`
 - `SceneRepository`
 - `SceneStore`
-- `LayerRendererProps`
+- `StreamRendererProps`
 
 `src/app/SceneViewerRoute.tsx` 改为通过 feature 根导入，禁止深层导入内部实现。
 

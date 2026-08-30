@@ -7,7 +7,9 @@ import { useProjectionMapData } from './data/useProjectionMapData'
 import { sceneAvailabilityProbe, type SceneAvailability } from './data/sceneAvailability'
 import type { ProjectionMapPoint } from './types'
 
-const SceneViewer = lazy(() => import('@/features/scene-viewer'))
+const SceneViewer = lazy(() =>
+  import('@/features/scene-viewer').then(module => ({ default: module.SceneViewer }))
+)
 
 // The projection and atlas are independent. Start both as soon as this route
 // module is evaluated instead of waiting for a component effect waterfall.

@@ -6,7 +6,7 @@ import {
   createCoordinateTransformScratch,
   updateCoordinateTransformInPlace
 } from './rendererResources'
-import type { CuboidPayload, LayerRendererProps } from '../types'
+import type { CuboidPayload, StreamRendererProps } from '../types'
 
 // ─── Capacity ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ const UNIT_EDGE_POSITIONS: Float32Array = (() => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CuboidRenderer({ streamName, style }: LayerRendererProps) {
+export function CuboidRenderer({ streamName, style }: StreamRendererProps) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
   const styleRef = useRef(style)

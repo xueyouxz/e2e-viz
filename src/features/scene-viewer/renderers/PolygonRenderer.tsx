@@ -11,7 +11,7 @@ import {
   updateCoordinateTransformInPlace,
   useLineMaterialResolution
 } from './rendererResources'
-import type { EgoPose, LayerRendererProps, PolygonPayload } from '../types'
+import type { EgoPose, PolygonPayload, StreamRendererProps } from '../types'
 
 function createDynamicAttribute(length: number, itemSize: number): THREE.BufferAttribute {
   const attribute = new THREE.BufferAttribute(new Float32Array(length), itemSize)
@@ -19,7 +19,7 @@ function createDynamicAttribute(length: number, itemSize: number): THREE.BufferA
   return attribute
 }
 
-export function PolygonRenderer({ streamName, style }: LayerRendererProps) {
+export function PolygonRenderer({ streamName, style }: StreamRendererProps) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
   const styleRef = useRef(style)

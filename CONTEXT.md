@@ -33,7 +33,7 @@ The data for one Stream at one Frame. Typed per `StreamType` (e.g. `CuboidPayloa
 
 ### Renderer
 
-A React Three Fiber component that renders one Stream's `StreamPayload` directly in the 3D canvas. It uses `useSceneStoreApi()` with `useFrame` instead of reactive Frame subscriptions, reuses instance-owned typed arrays and Three.js resources, and owns disposal. One Renderer exists per rendered `StreamType`: `CuboidRenderer`, `PointRenderer`, `PathRenderer`, `PolygonRenderer`, and `ImageRenderer`. `layerRegistry` maps protocol types to these Renderers. The `pose` type is handled separately by `scene/EgoVehicle.tsx`.
+A React Three Fiber component that renders one Stream's `StreamPayload` directly in the 3D canvas. It uses `useSceneStoreApi()` with `useFrame` instead of reactive Frame subscriptions, reuses instance-owned typed arrays and Three.js resources, and owns disposal. One Renderer exists per rendered `StreamType`: `CuboidRenderer`, `PointRenderer`, `PathRenderer`, `PolygonRenderer`, and `ImageRenderer`. `rendererRegistry` maps protocol types to these Renderers. The `pose` type is handled separately by `scene/EgoVehicle.tsx`.
 
 ### SceneSession
 
@@ -57,11 +57,11 @@ A per-SceneViewer instance Zustand store (created via `createSceneStore()`). Hol
 
 ### svgTokens
 
-A frozen JS object (`svgTokens`, type `SvgTokens`) in `styleConfig.tsx` providing colour values for SVG/canvas elements that cannot consume CSS variables (D3 charts, PlaybackTimeline). The app ships a single light palette with no runtime theme switching (see ADR-0006); CSS modules consume `--app-*` custom properties defined in `:root` in `src/styles/variables.css`.
+A frozen JS object (`svgTokens`, type `SvgTokens`) in `styleConfig.ts` providing colour values for SVG/canvas elements that cannot consume CSS variables (D3 charts, PlaybackTimeline). The app ships a single light palette with no runtime theme switching (see ADR-0006); CSS modules consume `--app-*` custom properties defined in `:root` in `src/styles/variables.css`.
 
 ### ProjectionMap
 
-Feature that renders a 2D D3 scatter plot of scenes. Supports panning, zooming, lasso selection, and multi-dataset toggling.
+Self-contained feature under `src/features/projection-map/` that renders a 2D D3 scatter plot of scenes. It owns its route entry, view, selected-scene list, Glyph Atlas rendering, data adapters, and domain types. Supports panning, zooming, lasso selection, and multi-dataset toggling.
 
 ### VectorMap
 
@@ -69,7 +69,7 @@ The data backing ProjectionMap: a set of scenes each with a 2D projection coordi
 
 ### Glyph
 
-A 44×44 SVG-unit bird's-eye thumbnail rendered per scene in the ProjectionMap, visible when zoom ≥ `LOD_GLYPH_MIN_K`. Implemented as a D3-managed `<g>` group containing a raster `<image>` (webp) and an SVG `<polyline>` for the **EgoTrajectory**. Selection state is expressed via a per-image SVG filter (edge detection + glow), not a rectangular border (see ADR-0004).
+A bird's-eye thumbnail rendered from one Sprite Atlas into a screen-space Canvas. The ProjectionMap selects one representative scene per LOD grid cell; `GlyphThumbnail` crops the same Atlas for the selected-scene list. Selection is drawn by the shared Canvas renderer.
 
 ### EgoTrajectory
 

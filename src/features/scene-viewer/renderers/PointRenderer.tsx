@@ -7,7 +7,7 @@ import {
   nextPowerOfTwo,
   updateCoordinateTransformInPlace
 } from './rendererResources'
-import type { EgoPose, LayerRendererProps, PointPayload } from '../types'
+import type { EgoPose, PointPayload, StreamRendererProps } from '../types'
 
 // White → orange → red heat colormap for intensity values in [0, 255].
 function intensityToRgb(v: number, out: Float32Array, offset: number): void {
@@ -37,7 +37,7 @@ function createGeometry(capacity: number): THREE.BufferGeometry {
   return geometry
 }
 
-export function PointRenderer({ streamName, style }: LayerRendererProps) {
+export function PointRenderer({ streamName, style }: StreamRendererProps) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
   const styleRef = useRef(style)

@@ -5,7 +5,7 @@ import type { StyleConfig } from './types'
 // 按 NUSVIZ 协议 §11.1 的类别 ID 映射到视觉颜色和描边不透明度。
 // 每种交通参与者使用固定色，确保跨帧、跨场景的视觉一致性。
 
-interface ObjectColorConfig {
+type ObjectColorConfig = {
   color: string
   strokeOpacity: number
 }

@@ -52,7 +52,7 @@ Scene directories contain a NUSVIZ message index, metadata GLB, and frame files 
 Five `StreamType` values from the NUSVIZ protocol are rendered via the registry (`point`, `polyline`, `polygon`, `cuboid`, `image`). The `pose` type is handled separately by `EgoVehicle` in `scene/`.
 
 - **Renderer** (`renderers/*Renderer.tsx`) — the complete rendering pipeline for one `StreamType`. Reads `StreamPayload` through zero-subscription `useSceneStoreApi()` + `useFrame`. Owns instance-scoped scratch objects, growable `DynamicDrawUsage` buffers, Three.js resources, and disposal.
-- **Registry** (`layerRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
+- **Registry** (`rendererRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
 
 Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Renderer + one registry entry.
 
@@ -63,7 +63,7 @@ Adding a new stream name under an existing type requires no code changes. Adding
 
 ### Styling
 
-A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `--app-*` custom properties in `:root` in `src/styles/variables.css`. For SVG/canvas elements (D3 charts, PlaybackTimeline) that cannot consume CSS variables: the `svgTokens` constant in `styleConfig.tsx`.
+A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `--app-*` custom properties in `:root` in `src/styles/variables.css`. For SVG/canvas elements (D3 charts, PlaybackTimeline) that cannot consume CSS variables: the `svgTokens` constant in `styleConfig.ts`.
 
 ## Key constraints
 
@@ -71,7 +71,7 @@ A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `
 - `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneRepository.destroy()` handles this.
 - Do not add reactive `useSceneStore(selector)` subscriptions inside Renderers; read the raw store only from the imperative R3F update path.
 - Do not replace `SceneCtx` with a module-level import of SceneStore.
-- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneRepository.materializeFrame`.
+- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneRepository` materialization.
 
 ## Type safety conventions
 

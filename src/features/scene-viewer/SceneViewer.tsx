@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { createSceneStore } from './store/sceneStore'
 import { SceneCtx, useSceneStore } from './context'
 import { SceneSession } from './SceneSession'
-import { layerRegistry } from './layerRegistry'
+import { rendererRegistry } from './rendererRegistry'
 import { getStyle } from './styleConfig'
 import { CameraController } from './scene/CameraController'
 import { SceneEffects } from './scene/SceneEffects'
@@ -118,10 +118,10 @@ function SceneViewerInner({ loadingProgress }: { loadingProgress: SceneLoadingPr
   // 根据流类型从注册表中查找对应 Renderer 组件。
   // pose 类型不参与注册（由 EgoVehicle 单独处理），通过 flatMap 过滤掉。
   // 依赖 streamsMeta，场景加载后仅计算一次。
-  const layers = useMemo(() => {
+  const renderers = useMemo(() => {
     return Object.entries(streamsMeta).flatMap(([streamName, meta]) => {
       if (meta.type === 'pose') return []
-      const Renderer = layerRegistry[meta.type]
+      const Renderer = rendererRegistry[meta.type]
       if (!Renderer) return []
       return [{ streamName, Renderer }]
     })
@@ -159,7 +159,7 @@ function SceneViewerInner({ loadingProgress }: { loadingProgress: SceneLoadingPr
              * 通过 useFrame + getState() 读取数据（零 React 订阅），
              * key=streamName 保证切换场景时旧组件被卸载并释放 GPU 资源
              */}
-            {layers.map(({ streamName, Renderer }) => (
+            {renderers.map(({ streamName, Renderer }) => (
               <Renderer key={streamName} streamName={streamName} style={getStyle(streamName)} />
             ))}
             {/* SelectedObjectIcon: 在选中对象上方渲染浮动 SVG 图标 */}

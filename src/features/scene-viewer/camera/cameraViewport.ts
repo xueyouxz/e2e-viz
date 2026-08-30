@@ -2,6 +2,7 @@ import { drawPseudo3DWireframes } from './wireframe'
 import type { WireframeDrawScratch } from './wireframe'
 import type { CameraViewportTransform, OverlayFitMode, ProjectedBox3DWireframe } from './types'
 
+// Drawing and picking share this transform so both use the same image-space mapping.
 export function computeViewportTransform(
   viewportWidth: number,
   viewportHeight: number,

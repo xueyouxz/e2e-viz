@@ -7,7 +7,7 @@ import {
   nextPowerOfTwo,
   updateCoordinateTransformInPlace
 } from './rendererResources'
-import type { EgoPose, LayerRendererProps, PolylinePayload } from '../types'
+import type { EgoPose, PolylinePayload, StreamRendererProps } from '../types'
 
 const MAX_RIBBON_VERTICES = 1_048_576
 
@@ -126,7 +126,7 @@ function buildRibbonsInPlace(
   return indexOffset
 }
 
-export function PathRenderer({ streamName, style }: LayerRendererProps) {
+export function PathRenderer({ streamName, style }: StreamRendererProps) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
   const styleRef = useRef(style)

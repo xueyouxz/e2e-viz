@@ -83,8 +83,24 @@ export type RawStreamPayload =
   | { _raw: 'point'; points: Float32Array; intensity: Float32Array | null }
   | { _raw: 'polyline'; vertices: Float32Array; offsets: Uint32Array; count: number }
   | { _raw: 'polygon'; vertices: Float32Array; offsets: Uint32Array; count: number }
-  | { _raw: 'cuboid'; centers: Float32Array; sizes: Float32Array; rotations: Float32Array; classIds: Uint32Array; trackIds: Uint32Array | null; scores: Float32Array | null; count: number }
-  | { _raw: 'image'; bytes: ArrayBuffer; mimeType: string; width: number; height: number; bounds?: ImageBounds }
+  | {
+      _raw: 'cuboid'
+      centers: Float32Array
+      sizes: Float32Array
+      rotations: Float32Array
+      classIds: Uint32Array
+      trackIds: Uint32Array | null
+      scores: Float32Array | null
+      count: number
+    }
+  | {
+      _raw: 'image'
+      bytes: ArrayBuffer
+      mimeType: string
+      width: number
+      height: number
+      bounds?: ImageBounds
+    }
 
 export interface RawDecodedFrame {
   updateType: 'COMPLETE_STATE' | 'INCREMENTAL'
@@ -114,7 +130,7 @@ export interface StyleConfig {
 
 // ─── Renderer interface ───────────────────────────────────────────────────────
 
-export interface LayerRendererProps {
+export interface StreamRendererProps {
   streamName: string
   style: StyleConfig
 }

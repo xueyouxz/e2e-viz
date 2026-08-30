@@ -6,7 +6,7 @@ import {
   createCoordinateTransformScratch,
   updateCoordinateTransformInPlace
 } from './rendererResources'
-import type { EgoPose, ImagePayload, LayerRendererProps } from '../types'
+import type { EgoPose, ImagePayload, StreamRendererProps } from '../types'
 
 function disposeMesh(mesh: THREE.Mesh): void {
   mesh.geometry.dispose()
@@ -41,7 +41,7 @@ function createMesh(payload: ImagePayload, bitmap: ImageBitmap): THREE.Mesh | nu
   return mesh
 }
 
-export function ImageRenderer({ streamName, style }: LayerRendererProps) {
+export function ImageRenderer({ streamName, style }: StreamRendererProps) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
   const styleRef = useRef(style)

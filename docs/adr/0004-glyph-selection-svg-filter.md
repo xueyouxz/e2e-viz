@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by the Sprite Atlas Canvas renderer. This ADR is retained as historical context for the previous SVG Glyph implementation.
 
 ## Context
 

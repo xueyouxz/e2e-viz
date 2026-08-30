@@ -6,7 +6,7 @@ import {
   computeViewportTransform,
   drawCameraOverlay,
   pickTrackAtViewportPoint
-} from './CameraOverlayCanvas'
+} from './cameraViewport'
 import { CameraOverlayProjector } from './CameraOverlayProjector'
 import { createWireframeDrawScratch } from './wireframe'
 import type { CameraChannel, CameraViewportTransform, ProjectedBox3DWireframe } from './types'

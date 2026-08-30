@@ -18,7 +18,7 @@ Each file in `renderers/` owns the complete store-to-GPU lifecycle for one rende
 - Grow capacity only when required and dispose every owned Three.js resource on replacement or unmount.
 - Write protocol typed arrays directly into reusable buffers without intermediate object collections.
 
-`layerRegistry.ts` remains the single `StreamType` to Renderer mapping. No Layer compatibility components or generic Renderer base class are retained.
+`rendererRegistry.ts` remains the single `StreamType` to Renderer mapping. No Layer compatibility components or generic Renderer base class are retained.
 
 Camera overlay code in `camera/` is outside this registry. `CameraOverlayProjector` owns reusable 2D projection scratch; each private `CameraViewport` owns its image, canvas resize, draw, and pick state.
 

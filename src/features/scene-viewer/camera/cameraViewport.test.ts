@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeViewportTransform, pickTrackAtViewportPoint } from './CameraOverlayCanvas'
+import { computeViewportTransform, pickTrackAtViewportPoint } from './cameraViewport'
 import type { ProjectedBox3DWireframe } from './types'
 
 function createProjectedCuboid(
