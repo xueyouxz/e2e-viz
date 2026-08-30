@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SceneSession } from './SceneSession'
 import { createSceneStore } from './store/sceneStore'
-import type { FrameCacheEntry, SceneRepository } from './data/SceneRepository'
-import type { MetadataParseResult } from './data/MetadataParser'
+import type {
+  FrameCacheEntry,
+  SceneRepository,
+  SceneRepositoryInitResult
+} from './data/SceneRepository'
 import type { SceneMetadata } from './types'
 
 const metadata: SceneMetadata = {
@@ -16,10 +19,9 @@ const metadata: SceneMetadata = {
   sceneDescription: ''
 }
 
-const metadataResult: MetadataParseResult = {
+const metadataResult: SceneRepositoryInitResult = {
   metadata,
-  initialStreamState: {},
-  staticImageUrls: []
+  initialStreamState: {}
 }
 
 function deferred<T>() {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SceneRepository } from './SceneRepository'
-import type { MetadataParseResult } from './MetadataParser'
+import type { RawMetadataParseResult } from './MetadataParser'
 import type { RawDecodedFrame, SceneMetadata } from '../types'
 
 const decoderMocks = vi.hoisted(() => ({
@@ -34,10 +34,9 @@ const metadata: SceneMetadata = {
   sceneDescription: ''
 }
 
-const metadataResult: MetadataParseResult = {
+const metadataResult: RawMetadataParseResult = {
   metadata,
-  initialStreamState: {},
-  staticImageUrls: []
+  initialStreamState: {}
 }
 
 function frame(index: number): RawDecodedFrame {
@@ -219,6 +218,18 @@ describe('SceneRepository', () => {
   })
 
   it('revokes every materialized image URL on destroy', async () => {
+    decoderMocks.parseMetadata.mockReturnValueOnce({
+      metadata,
+      initialStreamState: {
+        '/map/basemap': {
+          _raw: 'image',
+          bytes: new ArrayBuffer(4),
+          mimeType: 'image/png',
+          width: 1,
+          height: 1
+        }
+      }
+    })
     const fetchMock = installImmediateFetch()
     const repository = new SceneRepository('/scene/')
     const onCacheChange = vi.fn()
@@ -235,9 +246,9 @@ describe('SceneRepository', () => {
     expect(signals.length).toBeGreaterThan(0)
     expect(signals.every(signal => signal === signals[0] && signal.aborted)).toBe(true)
     expect(onCacheChange).toHaveBeenCalled()
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(2)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fixture')
-    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1)
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2)
   })
 
   it('does not materialize a decode that completes after destroy', async () => {

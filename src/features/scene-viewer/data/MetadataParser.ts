@@ -5,11 +5,9 @@ import type {
   SceneStatistics,
   ObjectCountSeries,
   StreamMeta,
-  StreamPayload,
-  PolygonPayload,
-  ImagePayload,
   ImageBounds,
-  CameraInfo
+  CameraInfo,
+  RawStreamPayload
 } from '../types'
 
 interface NuvizAccessorRef {
@@ -156,17 +154,16 @@ function hasImageBounds(bounds: unknown): bounds is ImageBounds {
   )
 }
 
-export interface MetadataParseResult {
+export interface RawMetadataParseResult {
   metadata: SceneMetadata
-  initialStreamState: Record<string, StreamPayload>
-  staticImageUrls: string[]
+  initialStreamState: Record<string, RawStreamPayload>
 }
 
 export function parseMetadata(
   buffer: ArrayBuffer,
   totalFrames: number,
   logInfo: { start_time: number; end_time: number }
-): MetadataParseResult {
+): RawMetadataParseResult {
   const { json, bin } = parseGlb(buffer)
   const root = json as unknown as NuvizMetadataRoot
   const data = root.nuviz.data
@@ -215,8 +212,7 @@ export function parseMetadata(
   }
 
   // ── Static map stream payloads → initialStreamState ───────────────────────
-  const initialStreamState: Record<string, StreamPayload> = {}
-  const staticImageUrls: string[] = []
+  const initialStreamState: Record<string, RawStreamPayload> = {}
 
   const mapData: Record<string, unknown> = data.map ?? {}
 
@@ -229,17 +225,14 @@ export function parseMetadata(
       // Image stream (e.g. /map/basemap)
       try {
         const { bytes, mimeType } = readImageBytes(json, bin, p.image as string)
-        const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }))
-        staticImageUrls.push(url)
-
-        const imgPayload: ImagePayload = {
-          type: 'image',
-          url,
+        initialStreamState[streamName] = {
+          _raw: 'image',
+          bytes,
+          mimeType,
           width: (p.width as number) ?? 0,
           height: (p.height as number) ?? 0,
           bounds: hasImageBounds(p.bounds) ? p.bounds : undefined
         }
-        initialStreamState[streamName] = imgPayload
       } catch {
         // skip malformed image entries
       }
@@ -250,13 +243,12 @@ export function parseMetadata(
         const offsets = (readAccessor(json, bin, p.offsets as string) as Uint32Array).slice()
         const count = (p.count as number) ?? offsets.length - 1
 
-        const polyPayload: PolygonPayload = { type: 'polygon', vertices, offsets, count }
-        initialStreamState[streamName] = polyPayload
+        initialStreamState[streamName] = { _raw: 'polygon', vertices, offsets, count }
       } catch {
         // skip malformed polygon entries
       }
     }
   }
 
-  return { metadata, initialStreamState, staticImageUrls }
+  return { metadata, initialStreamState }
 }

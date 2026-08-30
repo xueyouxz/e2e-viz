@@ -1,13 +1,19 @@
 import { parseMetadata } from './MetadataParser'
 import { FrameDecoder } from './FrameDecoder'
 import type { SceneLoadingProgress } from './loadingProgress'
-import type { EgoPose, MessageIndex, RawDecodedFrame, StreamPayload } from '../types'
-import type { MetadataParseResult } from './MetadataParser'
+import type {
+  EgoPose,
+  MessageIndex,
+  RawDecodedFrame,
+  RawStreamPayload,
+  SceneMetadata,
+  StreamPayload
+} from '../types'
 
 const PREFETCH_BACK = 15
 const PREFETCH_FORWARD = 10
 const MAX_CACHED_FRAMES = PREFETCH_BACK + PREFETCH_FORWARD + 1 // 26 slots
-const MAX_BACKGROUND_FRAME_LOADS = 2
+const MAX_CONCURRENT_FRAME_LOADS = 2
 
 type FrameLoadPriority = 'critical' | 'background'
 
@@ -63,55 +69,69 @@ async function fetchArrayBufferWithProgress(
   return combined.buffer
 }
 
-function materializeFrame(raw: RawDecodedFrame): {
+function materializePatches(rawPatches: Record<string, RawStreamPayload>): {
   patches: Record<string, StreamPayload>
   imageUrls: string[]
 } {
   const patches: Record<string, StreamPayload> = {}
   const imageUrls: string[] = []
 
-  for (const [streamName, payload] of Object.entries(raw.patches)) {
-    if (payload._raw === 'point') {
-      patches[streamName] = { type: 'point', points: payload.points, intensity: payload.intensity }
-    } else if (payload._raw === 'polyline') {
-      patches[streamName] = {
-        type: 'polyline',
-        vertices: payload.vertices,
-        offsets: payload.offsets,
-        count: payload.count
-      }
-    } else if (payload._raw === 'polygon') {
-      patches[streamName] = {
-        type: 'polygon',
-        vertices: payload.vertices,
-        offsets: payload.offsets,
-        count: payload.count
-      }
-    } else if (payload._raw === 'cuboid') {
-      patches[streamName] = {
-        type: 'cuboid',
-        centers: payload.centers,
-        sizes: payload.sizes,
-        rotations: payload.rotations,
-        classIds: payload.classIds,
-        trackIds: payload.trackIds,
-        scores: payload.scores,
-        count: payload.count
-      }
-    } else if (payload._raw === 'image') {
-      const url = URL.createObjectURL(new Blob([payload.bytes], { type: payload.mimeType }))
-      imageUrls.push(url)
-      patches[streamName] = {
-        type: 'image',
-        url,
-        width: payload.width,
-        height: payload.height,
-        bounds: payload.bounds
+  try {
+    for (const [streamName, payload] of Object.entries(rawPatches)) {
+      if (payload._raw === 'point') {
+        patches[streamName] = {
+          type: 'point',
+          points: payload.points,
+          intensity: payload.intensity
+        }
+      } else if (payload._raw === 'polyline') {
+        patches[streamName] = {
+          type: 'polyline',
+          vertices: payload.vertices,
+          offsets: payload.offsets,
+          count: payload.count
+        }
+      } else if (payload._raw === 'polygon') {
+        patches[streamName] = {
+          type: 'polygon',
+          vertices: payload.vertices,
+          offsets: payload.offsets,
+          count: payload.count
+        }
+      } else if (payload._raw === 'cuboid') {
+        patches[streamName] = {
+          type: 'cuboid',
+          centers: payload.centers,
+          sizes: payload.sizes,
+          rotations: payload.rotations,
+          classIds: payload.classIds,
+          trackIds: payload.trackIds,
+          scores: payload.scores,
+          count: payload.count
+        }
+      } else if (payload._raw === 'image') {
+        const url = URL.createObjectURL(new Blob([payload.bytes], { type: payload.mimeType }))
+        imageUrls.push(url)
+        patches[streamName] = {
+          type: 'image',
+          url,
+          width: payload.width,
+          height: payload.height,
+          bounds: payload.bounds
+        }
       }
     }
+  } catch (error) {
+    for (const url of imageUrls) URL.revokeObjectURL(url)
+    throw error
   }
 
   return { patches, imageUrls }
+}
+
+export interface SceneRepositoryInitResult {
+  metadata: SceneMetadata
+  initialStreamState: Record<string, StreamPayload>
 }
 
 export type FrameCacheEntry = {
@@ -131,7 +151,7 @@ export class SceneRepository {
   private activeFrameLoads = 0
 
   private messageIndex: MessageIndex | null = null
-  private metadataResult: MetadataParseResult | null = null
+  private readonly staticImageUrls: string[] = []
   private isDestroyed = false
   private metadataReadyForProgress = false
   private initialFrameProgress: Pick<SceneLoadingProgress, 'loadedBytes' | 'totalBytes'> = {
@@ -170,7 +190,7 @@ export class SceneRepository {
     return () => this.cacheChangeListeners.delete(listener)
   }
 
-  async init(): Promise<MetadataParseResult> {
+  async init(): Promise<SceneRepositoryInitResult> {
     this.setLoadingProgress({ phase: 'index', loadedBytes: 0, totalBytes: null })
     const indexBuffer = await fetchArrayBufferWithProgress(
       `${this.baseUrl}message_index.json`,
@@ -210,8 +230,17 @@ export class SceneRepository {
     )
 
     this.assertActive()
-    const result = parseMetadata(metadataBuffer, messages.length, this.messageIndex.log_info)
-    this.metadataResult = result
+    const parsedMetadata = parseMetadata(
+      metadataBuffer,
+      messages.length,
+      this.messageIndex.log_info
+    )
+    const staticStreams = materializePatches(parsedMetadata.initialStreamState)
+    this.staticImageUrls.push(...staticStreams.imageUrls)
+    const result: SceneRepositoryInitResult = {
+      metadata: parsedMetadata.metadata,
+      initialStreamState: staticStreams.patches
+    }
     const decoder = new FrameDecoder(result.metadata.streams)
     this.decoder = decoder
     this.metadataReadyForProgress = true
@@ -224,25 +253,12 @@ export class SceneRepository {
           this.setLoadingProgress({ phase: 'parsing', ...this.initialFrameProgress })
           return decoder.decode(buf)
         })
-        .then(raw => {
-          this.assertActive()
-          const { patches, imageUrls } = materializeFrame(raw)
-          const entry: FrameCacheEntry = {
-            updateType: raw.updateType,
-            egoPose: raw.egoPose,
-            patches,
-            imageUrls
-          }
-          this.cache.set(0, entry)
-          this.notifyCacheChanges()
+        .then(raw => this.commitDecodedFrame(0, raw))
+        .then(entry => {
           this.setLoadingProgress({ phase: 'ready', ...this.initialFrameProgress })
           return entry
         })
-      this.inFlight.set(0, frame0Entry)
-      frame0Entry.then(
-        () => this.inFlight.delete(0),
-        () => this.inFlight.delete(0)
-      )
+      this.trackInFlight(0, frame0Entry)
     }
 
     return result
@@ -297,10 +313,8 @@ export class SceneRepository {
       for (const url of entry.imageUrls) URL.revokeObjectURL(url)
     }
     this.cache.clear()
-    if (this.metadataResult) {
-      for (const url of this.metadataResult.staticImageUrls) URL.revokeObjectURL(url)
-      this.metadataResult = null
-    }
+    for (const url of this.staticImageUrls) URL.revokeObjectURL(url)
+    this.staticImageUrls.length = 0
     this.loadingProgressListeners.clear()
     this.cacheChangeListeners.clear()
   }
@@ -322,17 +336,21 @@ export class SceneRepository {
     const promise = new Promise<FrameCacheEntry>((resolve, reject) => {
       this.queuedFrameLoads.set(frameIndex, { frameIndex, priority, resolve, reject })
     })
+    this.trackInFlight(frameIndex, promise)
+    this.drainFrameQueue()
+    return promise
+  }
+
+  private trackInFlight(frameIndex: number, promise: Promise<FrameCacheEntry>): void {
     this.inFlight.set(frameIndex, promise)
     promise.then(
       () => this.inFlight.delete(frameIndex),
       () => this.inFlight.delete(frameIndex)
     )
-    this.drainFrameQueue()
-    return promise
   }
 
   private drainFrameQueue(): void {
-    while (!this.isDestroyed && this.activeFrameLoads < MAX_BACKGROUND_FRAME_LOADS) {
+    while (!this.isDestroyed && this.activeFrameLoads < MAX_CONCURRENT_FRAME_LOADS) {
       const next = [...this.queuedFrameLoads.values()].sort((a, b) => {
         if (a.priority === b.priority) return a.frameIndex - b.frameIndex
         return a.priority === 'critical' ? -1 : 1
@@ -367,7 +385,12 @@ export class SceneRepository {
 
     const raw = await decoder.decode(await response.arrayBuffer())
     this.assertActive()
-    const { patches, imageUrls } = materializeFrame(raw)
+    return this.commitDecodedFrame(frameIndex, raw)
+  }
+
+  private commitDecodedFrame(frameIndex: number, raw: RawDecodedFrame): FrameCacheEntry {
+    this.assertActive()
+    const { patches, imageUrls } = materializePatches(raw.patches)
     const materialized: FrameCacheEntry = {
       updateType: raw.updateType,
       egoPose: raw.egoPose,
