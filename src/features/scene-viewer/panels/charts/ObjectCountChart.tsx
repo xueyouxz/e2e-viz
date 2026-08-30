@@ -13,6 +13,9 @@ const STREAM_BOT = STREAM_H - 4
 const toggleBtn =
   'cursor-pointer rounded-[3px] border border-transparent bg-transparent px-2 py-0.5 text-[10px] font-semibold tracking-[0.05em] text-app-text-dim transition-colors hover:text-app-text-label'
 const toggleBtnActive = 'border-app-border-btn bg-app-card-bg text-app-text-strong'
+const legend = 'mb-[5px] flex flex-wrap gap-x-2.5 gap-y-1.5'
+const legendItem = 'flex items-center gap-1 text-[10px] text-app-text-label'
+const legendDot = 'inline-block h-2 w-2 shrink-0 rounded-sm'
 
 const CATEGORY_COLORS: Record<string, string> = {
   car: '#4B8CF8',
@@ -26,6 +29,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const GT_CATEGORIES = ['car', 'pedestrian', 'truck']
 const PRED_CATEGORIES = ['car', 'pedestrian']
+const ALL_CATEGORIES = Array.from(new Set([...GT_CATEGORIES, ...PRED_CATEGORIES]))
 
 type ActiveView = 'gt' | 'pred'
 type FrameRow = Record<string, number>
@@ -48,6 +52,29 @@ interface ObjectCountChartProps {
   gtSeries: ObjectCountSeries | undefined
   predSeries: ObjectCountSeries | undefined
   frameCount: number
+}
+
+function ObjectCountLegend({
+  gtSeries,
+  predSeries
+}: Pick<ObjectCountChartProps, 'gtSeries' | 'predSeries'>) {
+  const visibleCategories = ALL_CATEGORIES.filter(
+    category => gtSeries?.categories[category] || predSeries?.categories[category]
+  )
+
+  return (
+    <div className={legend}>
+      {visibleCategories.map(category => (
+        <span key={category} className={legendItem}>
+          <span
+            className={legendDot}
+            style={{ background: CATEGORY_COLORS[category] ?? '#888', opacity: 0.75 }}
+          />
+          {category}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 export function ObjectCountChart({ gtSeries, predSeries, frameCount }: ObjectCountChartProps) {
@@ -106,6 +133,7 @@ export function ObjectCountChart({ gtSeries, predSeries, frameCount }: ObjectCou
 
   return (
     <div>
+      <ObjectCountLegend gtSeries={gtSeries} predSeries={predSeries} />
       <div className='mb-1.5 flex gap-0.5'>
         <button
           className={`${toggleBtn} ${active === 'gt' ? toggleBtnActive : ''}`}

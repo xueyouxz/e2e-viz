@@ -13,7 +13,6 @@ const cls = {
     'flex cursor-pointer items-center border-0 bg-transparent px-0.5 text-[18px] leading-none text-app-text-dim hover:text-app-text-strong',
   content:
     'flex-1 overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-app-scrollbar [&::-webkit-scrollbar-track]:bg-transparent',
-  legend: 'mb-[5px] flex flex-wrap gap-x-2.5 gap-y-1.5',
   chartLegendRow: 'mb-1 flex gap-2.5',
   legendItem: 'flex items-center gap-1 text-[10px] text-app-text-label',
   legendDot: 'inline-block h-2 w-2 shrink-0 rounded-sm',
@@ -39,38 +38,8 @@ const METRIC_CONFIG: Record<string, MetricConfig> = {
 
 const SCORE_METRICS = ['detection', 'mapping', 'planning'] as const
 
-const CATEGORY_COLORS: Record<string, string> = {
-  car: '#4B8CF8',
-  pedestrian: '#16A34A',
-  truck: '#0284C7',
-  bicycle: '#D97706',
-  bus: '#7C3AED',
-  motorcycle: '#0D9488',
-  trailer: '#4F46E5'
-}
-
-const GT_CATEGORIES = ['car', 'pedestrian', 'truck']
-const PRED_CATEGORIES = ['car', 'pedestrian']
-
 const SPEED_COLOR = '#F59E0B'
 const ACCEL_COLOR = '#22D3EE'
-
-interface LegendProps {
-  entries: { key: string; color: string; opacity: number }[]
-}
-
-function Legend({ entries }: LegendProps) {
-  return (
-    <div className={cls.legend}>
-      {entries.map(e => (
-        <span key={e.key} className={cls.legendItem}>
-          <span className={cls.legendDot} style={{ background: e.color, opacity: e.opacity }} />
-          {e.key}
-        </span>
-      ))}
-    </div>
-  )
-}
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return <div className={cls.sectionHeader}>{children}</div>
@@ -97,15 +66,6 @@ export function StatisticsPanel({ onClose }: StatisticsPanelProps) {
 
   const gtSeries = statistics?.objectCounts[GT_STREAM]
   const predSeries = statistics?.objectCounts[PRED_STREAM]
-
-  const catKeys = useMemo(() => Array.from(new Set([...GT_CATEGORIES, ...PRED_CATEGORIES])), [])
-  const legendEntries = useMemo(
-    () =>
-      catKeys
-        .filter(k => gtSeries?.categories[k] || predSeries?.categories[k])
-        .map(k => ({ key: k, color: CATEGORY_COLORS[k] ?? '#888', opacity: 0.75 })),
-    [catKeys, gtSeries, predSeries]
-  )
 
   const hasMetrics = statistics ? SCORE_METRICS.some(name => statistics.metrics[name]) : false
 
@@ -181,7 +141,6 @@ export function StatisticsPanel({ onClose }: StatisticsPanelProps) {
         />
 
         <SectionHeader>目标计数对比</SectionHeader>
-        <Legend entries={legendEntries} />
         <ObjectCountChart gtSeries={gtSeries} predSeries={predSeries} frameCount={totalFrames} />
       </div>
     </div>
