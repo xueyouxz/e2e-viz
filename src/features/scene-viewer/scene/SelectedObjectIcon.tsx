@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
@@ -23,34 +23,54 @@ const CATEGORY_ICONS: Record<number, string> = {
   10: 'M2 6h8v6.5H2zm8 2h3.5l1 2v2.5H10zm-5.5 4v1.5m3-1.5v1.5m4-2v1.5' // truck
 }
 
-interface IconInnerProps {
-  trackId: number
-  classId: number
-  color: string
-}
-
-function IconInner({ trackId, classId, color }: IconInnerProps) {
+function SelectedTrackIcon({ trackId }: { trackId: number }) {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
+  const classIdRef = useRef(0)
+  const [classId, setClassId] = useState(0)
   const iconPath = CATEGORY_ICONS[classId] ?? CATEGORY_ICONS[0]
+  const { color } = getObjectColor(classId)
+
+  useLayoutEffect(() => {
+    if (groupRef.current) groupRef.current.visible = false
+  }, [trackId])
 
   useFrame(() => {
     const group = groupRef.current
     if (!group) return
     const payload = store.getState().streamState[CUBOID_STREAM] as CuboidPayload | undefined
-    if (!payload || payload.type !== 'cuboid') return
+    if (!payload || payload.type !== 'cuboid') {
+      group.visible = false
+      return
+    }
 
+    let selectedIndex = -1
     for (let i = 0; i < payload.count; i++) {
       const tid = payload.trackIds ? payload.trackIds[i] : i
       if (tid !== trackId) continue
-      const height = payload.sizes[i * 3 + 2]
-      group.position.set(
-        payload.centers[i * 3],
-        payload.centers[i * 3 + 1],
-        payload.centers[i * 3 + 2] + height / 2 + 2.0
-      )
+      selectedIndex = i
       break
     }
+
+    if (selectedIndex < 0) {
+      group.visible = false
+      return
+    }
+
+    const nextClassId = payload.classIds[selectedIndex]
+    if (nextClassId !== classIdRef.current) {
+      classIdRef.current = nextClassId
+      setClassId(nextClassId)
+    }
+
+    const offset = selectedIndex * 3
+    const height = payload.sizes[offset + 2]
+    group.position.set(
+      payload.centers[offset],
+      payload.centers[offset + 1],
+      payload.centers[offset + 2] + height / 2 + 2.0
+    )
+    group.visible = true
   })
 
   return (
@@ -78,32 +98,8 @@ function IconInner({ trackId, classId, color }: IconInnerProps) {
 }
 
 export function SelectedObjectIcon() {
-  const store = useSceneStoreApi()
   const selectedTrackId = useSceneStore(s => s.selectedTrackId)
-
-  const iconInfo = useMemo(() => {
-    if (selectedTrackId == null) return null
-    const payload = store.getState().streamState[CUBOID_STREAM] as CuboidPayload | undefined
-    if (!payload || payload.type !== 'cuboid') return null
-
-    for (let i = 0; i < payload.count; i++) {
-      const tid = payload.trackIds ? payload.trackIds[i] : i
-      if (tid !== selectedTrackId) continue
-      const classId = payload.classIds[i]
-      const { color } = getObjectColor(classId)
-      return { classId, color }
-    }
-    return null
-  }, [selectedTrackId, store])
-
-  if (selectedTrackId == null || !iconInfo) return null
-
-  return (
-    <IconInner
-      key={selectedTrackId}
-      trackId={selectedTrackId}
-      classId={iconInfo.classId}
-      color={iconInfo.color}
-    />
+  return selectedTrackId == null ? null : (
+    <SelectedTrackIcon key={selectedTrackId} trackId={selectedTrackId} />
   )
 }

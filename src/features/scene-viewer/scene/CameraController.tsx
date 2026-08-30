@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { ElementRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
@@ -6,19 +6,33 @@ import { OrbitControls } from '@react-three/drei'
 import { useSceneStore, useSceneStoreApi } from '../context'
 import type { CameraMode } from '../store/sceneStore'
 
-// ─── Pre-allocated temporaries (no per-frame allocation) ─────────────────────
-const _egoPos = new THREE.Vector3()
-const _prevEgoPos = new THREE.Vector3()
-const _q = new THREE.Quaternion()
-const _followOffset = new THREE.Vector3(-18, 0, 15)
-const _offset = new THREE.Vector3()
-const _desiredCamPos = new THREE.Vector3()
-const _targetLerp = new THREE.Vector3()
-const _camLerp = new THREE.Vector3()
-const _egoDelta = new THREE.Vector3()
-
 const TRANSITION_DURATION = 0.4
 const FOLLOW_LAMBDA = 8
+const FOLLOW_OFFSET = new THREE.Vector3(-18, 0, 15)
+
+interface CameraControllerScratch {
+  egoPos: THREE.Vector3
+  prevEgoPos: THREE.Vector3
+  quaternion: THREE.Quaternion
+  offset: THREE.Vector3
+  desiredCamPos: THREE.Vector3
+  targetLerp: THREE.Vector3
+  camLerp: THREE.Vector3
+  egoDelta: THREE.Vector3
+}
+
+function createCameraControllerScratch(): CameraControllerScratch {
+  return {
+    egoPos: new THREE.Vector3(),
+    prevEgoPos: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    offset: new THREE.Vector3(),
+    desiredCamPos: new THREE.Vector3(),
+    targetLerp: new THREE.Vector3(),
+    camLerp: new THREE.Vector3(),
+    egoDelta: new THREE.Vector3()
+  }
+}
 
 interface Transition {
   fromPos: THREE.Vector3
@@ -28,15 +42,19 @@ interface Transition {
   elapsed: number
 }
 
-function wxyzToThreeQuat(wxyz: [number, number, number, number]): THREE.Quaternion {
+function setQuaternionFromWxyz(
+  target: THREE.Quaternion,
+  wxyz: [number, number, number, number]
+): void {
   const [w, x, y, z] = wxyz
-  return _q.set(x, y, z, w)
+  target.set(x, y, z, w)
 }
 
 export function CameraController() {
   const store = useSceneStoreApi()
+  const [scratch] = useState(createCameraControllerScratch)
   const controlsRef = useRef<ElementRef<typeof OrbitControls> | null>(null)
-  const prevModeRef = useRef<CameraMode>('follow')
+  const prevModeRef = useRef<CameraMode>(store.getState().cameraMode)
   const snapRef = useRef(true)
   const bevInitRef = useRef(false)
   const transitionRef = useRef<Transition | null>(null)
@@ -48,19 +66,19 @@ export function CameraController() {
     if (!controls || !egoPose) return
 
     const { translation, rotation } = egoPose
-    _egoPos.set(translation[0], translation[1], translation[2])
+    scratch.egoPos.set(translation[0], translation[1], translation[2])
 
     if (!prevEgoInitRef.current) {
-      _prevEgoPos.copy(_egoPos)
-      _targetLerp.copy(_egoPos)
-      _camLerp.copy(_egoPos).add(_followOffset)
+      scratch.prevEgoPos.copy(scratch.egoPos)
+      scratch.targetLerp.copy(scratch.egoPos)
+      scratch.camLerp.copy(scratch.egoPos).add(FOLLOW_OFFSET)
       prevEgoInitRef.current = true
     }
 
     if (cameraMode !== prevModeRef.current) {
       const cam = controls.object as THREE.Camera
-      const toPos = computeModeIdealCamPos(cameraMode, _egoPos, rotation)
-      const toTarget = computeModeIdealTarget(cameraMode, _egoPos)
+      const toPos = computeModeIdealCamPos(cameraMode, scratch.egoPos, rotation)
+      const toTarget = computeModeIdealTarget(cameraMode, scratch.egoPos)
 
       transitionRef.current = {
         fromPos: cam.position.clone(),
@@ -75,7 +93,7 @@ export function CameraController() {
       prevModeRef.current = cameraMode
     }
 
-    _egoDelta.subVectors(_egoPos, _prevEgoPos)
+    scratch.egoDelta.subVectors(scratch.egoPos, scratch.prevEgoPos)
 
     const tr = transitionRef.current
     if (tr) {
@@ -89,44 +107,44 @@ export function CameraController() {
       controls.update()
 
       if (t >= 1) transitionRef.current = null
-      _prevEgoPos.copy(_egoPos)
+      scratch.prevEgoPos.copy(scratch.egoPos)
       return
     }
 
     if (cameraMode === 'follow') {
-      wxyzToThreeQuat(rotation)
-      _offset.copy(_followOffset).applyQuaternion(_q)
-      _desiredCamPos.addVectors(_egoPos, _offset)
+      setQuaternionFromWxyz(scratch.quaternion, rotation)
+      scratch.offset.copy(FOLLOW_OFFSET).applyQuaternion(scratch.quaternion)
+      scratch.desiredCamPos.addVectors(scratch.egoPos, scratch.offset)
 
       if (snapRef.current) {
-        _targetLerp.copy(_egoPos)
-        _camLerp.copy(_desiredCamPos)
+        scratch.targetLerp.copy(scratch.egoPos)
+        scratch.camLerp.copy(scratch.desiredCamPos)
         ;(controls.object as THREE.Camera).up.set(0, 0, 1)
         snapRef.current = false
       } else {
         const alpha = 1 - Math.exp(-FOLLOW_LAMBDA * delta)
-        _targetLerp.lerp(_egoPos, alpha)
-        _camLerp.lerp(_desiredCamPos, alpha * 0.85)
+        scratch.targetLerp.lerp(scratch.egoPos, alpha)
+        scratch.camLerp.lerp(scratch.desiredCamPos, alpha * 0.85)
       }
 
-      controls.target.copy(_targetLerp)
-      controls.object.position.copy(_camLerp)
+      controls.target.copy(scratch.targetLerp)
+      controls.object.position.copy(scratch.camLerp)
       controls.update()
     } else if (cameraMode === 'bev') {
       if (!bevInitRef.current) {
-        controls.object.position.set(_egoPos.x, _egoPos.y, 150)
-        controls.target.set(_egoPos.x, _egoPos.y, 0)
+        controls.object.position.set(scratch.egoPos.x, scratch.egoPos.y, 150)
+        controls.target.set(scratch.egoPos.x, scratch.egoPos.y, 0)
         controls.object.up.set(0, 1, 0)
         bevInitRef.current = true
       } else {
-        controls.object.position.addScaledVector(_egoDelta, 1)
-        controls.target.addScaledVector(_egoDelta, 1)
+        controls.object.position.addScaledVector(scratch.egoDelta, 1)
+        controls.target.addScaledVector(scratch.egoDelta, 1)
       }
       controls.update()
     }
     // free mode: OrbitControls handles everything
 
-    _prevEgoPos.copy(_egoPos)
+    scratch.prevEgoPos.copy(scratch.egoPos)
   })
 
   const cameraMode = useSceneStore(s => s.cameraMode)
@@ -154,7 +172,7 @@ function computeModeIdealCamPos(
   if (mode === 'follow') {
     const [w, x, y, z] = rotation
     const q = new THREE.Quaternion(x, y, z, w)
-    return new THREE.Vector3().copy(_followOffset).applyQuaternion(q).add(egoPos)
+    return new THREE.Vector3().copy(FOLLOW_OFFSET).applyQuaternion(q).add(egoPos)
   }
   if (mode === 'bev') {
     return new THREE.Vector3(egoPos.x, egoPos.y, 150)
