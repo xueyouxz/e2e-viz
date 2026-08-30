@@ -26,7 +26,7 @@ describe('createSceneStore', () => {
     first.getState().setCameraMode('bev')
 
     expect(second.getState().frameIndex).toBe(0)
-    expect(second.getState().cameraMode).toBe('free')
+    expect(second.getState().cameraMode).toBe('follow')
   })
 
   it('creates a store with correct initial state', () => {
@@ -35,7 +35,7 @@ describe('createSceneStore', () => {
     expect(state.frameIndex).toBe(0)
     expect(state.isPlaying).toBe(false)
     expect(state.playbackSpeed).toBe(1)
-    expect(state.cameraMode).toBe('free')
+    expect(state.cameraMode).toBe('follow')
     expect(state.selectedTrackId).toBeNull()
     expect(state.totalFrames).toBe(0)
   })

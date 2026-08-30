@@ -75,7 +75,7 @@ export function createSceneStore() {
   return create<SceneState>(set => ({
     ...createEmptySceneData(),
     playbackSpeed: 1,
-    cameraMode: 'free',
+    cameraMode: 'follow',
 
     resetSceneData: () => set(createEmptySceneData()),
 
