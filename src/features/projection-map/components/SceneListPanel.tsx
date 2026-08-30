@@ -1,8 +1,8 @@
 import { type CSSProperties, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { GlyphThumbnail } from '@/components/projection-map/glyph/GlyphThumbnail'
-import type { ProjectionMapPoint } from '@/types/scene'
-import { useScenesMeta, type SceneObjectSummary } from '@/hooks/useScenesMeta'
+import { GlyphThumbnail } from '../glyph/GlyphThumbnail'
+import { useSceneMetadata, type SceneObjectSummary } from '../data/useSceneMetadata'
+import type { ProjectionMapPoint } from '../types'
 
 type ObjectGroupKey = 'vehicle' | 'pedestrian' | 'movable' | 'static' | 'animal' | 'other'
 
@@ -117,9 +117,9 @@ type Props = {
 }
 
 export function SceneListPanel({ scenes, visible, onClear }: Props) {
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   // Triggers fetch on first scene selection; returns cached Map on subsequent renders.
-  const meta = useScenesMeta(scenes.length > 0)
+  const meta = useSceneMetadata(scenes.length > 0)
 
   const virtualizer = useVirtualizer({
     count: scenes.length,
@@ -141,7 +141,7 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
         </button>
       </div>
 
-      <ul ref={listRef} className={cls.list}>
+      <div ref={listRef} className={cls.list} role='list'>
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map(virtualItem => {
             const scene = scenes[virtualItem.index]
@@ -152,10 +152,11 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
               objectGroups.reduce((total, group) => total + group.count, 0)
 
             return (
-              <li
+              <div
                 key={virtualItem.key}
                 ref={virtualizer.measureElement}
                 data-index={virtualItem.index}
+                role='listitem'
                 className={cls.item}
                 style={{
                   position: 'absolute',
@@ -215,11 +216,11 @@ export function SceneListPanel({ scenes, visible, onClear }: Props) {
                     )}
                   </div>
                 </div>
-              </li>
+              </div>
             )
           })}
         </div>
-      </ul>
+      </div>
     </aside>
   )
 }

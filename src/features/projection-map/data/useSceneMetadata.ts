@@ -58,7 +58,7 @@ function loadScenesMeta(): Promise<Map<string, SceneObjectSummary>> {
  *
  * Returns null while loading or if the fetch failed.
  */
-export function useScenesMeta(enabled: boolean): Map<string, SceneObjectSummary> | null {
+export function useSceneMetadata(enabled: boolean): Map<string, SceneObjectSummary> | null {
   const [meta, setMeta] = useState<Map<string, SceneObjectSummary> | null>(metaCache)
 
   useEffect(() => {

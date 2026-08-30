@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 
 const FORBIDDEN_INITIAL_CHUNK_PREFIXES = ['three-core-', 'r3f-', 'zustand-', 'SceneViewer-']
-const PROJECTION_ROUTE_MODULE = 'src/pages/ProjectionMapPage.tsx'
+const PROJECTION_ROUTE_MODULE = 'src/features/projection-map/index.tsx'
 const INITIAL_GZIP_LIMIT_BYTES = 150 * 1024
 
 export function findForbiddenInitialChunks(html) {

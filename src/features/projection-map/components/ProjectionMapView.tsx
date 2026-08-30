@@ -8,11 +8,15 @@ import {
   useState
 } from 'react'
 import * as d3 from 'd3'
-import { CategoryBarChart, type BarDatum } from '@/components/charts/CategoryBarChart'
-import { glyphAtlasLoader } from './glyph/glyphAtlas'
-import { resolveGlyphCanvasPixelRatio } from './glyph/glyphCanvasMetrics'
-import { drawGlyphCanvas, hitTestGlyph, type GlyphScreenPoint } from './glyph/glyphCanvasRenderer'
-import type { ProjectionMapPoint, SplitName } from '@/types/scene'
+import { CategoryBarChart, type BarDatum } from './CategoryBarChart'
+import { glyphAtlasLoader } from '../glyph/glyphAtlas'
+import {
+  drawGlyphCanvas,
+  hitTestGlyph,
+  resolveGlyphCanvasPixelRatio,
+  type GlyphScreenPoint
+} from '../glyph/glyphCanvasRenderer'
+import type { ProjectionMapPoint, SplitName } from '../types'
 
 const cls = {
   panel: 'relative min-h-0 flex-1 overflow-hidden bg-app-panel-bg-solid',

@@ -19,7 +19,7 @@ export type BarDatum = {
   color: string
 }
 
-type Props = {
+type CategoryBarChartProps = {
   bars: BarDatum[]
   activeIds: string[]
   onBarClick: (id: string) => void
@@ -56,7 +56,7 @@ function svgHeight(n: number): number {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CategoryBarChart({ bars, activeIds, onBarClick }: Props) {
+export function CategoryBarChart({ bars, activeIds, onBarClick }: CategoryBarChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const clickRef = useRef(onBarClick)
 

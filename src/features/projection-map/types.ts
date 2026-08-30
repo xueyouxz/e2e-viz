@@ -1,6 +1,6 @@
 export type SplitName = 'train' | 'val'
 
-export type ProjectionScene = {
+export type ProjectionMapPoint = {
   scene_name: string
   scene_token: string
   split: SplitName
@@ -9,5 +9,3 @@ export type ProjectionScene = {
   som_comp1?: number
   som_comp2?: number
 }
-
-export type ProjectionMapPoint = ProjectionScene

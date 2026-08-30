@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { glyphAtlasLoader, glyphAtlasSourceRect } from './glyphAtlas'
 
-type GlyphThumbnailProps = {
+interface GlyphThumbnailProps {
   sceneName: string
   className?: string
   size?: number

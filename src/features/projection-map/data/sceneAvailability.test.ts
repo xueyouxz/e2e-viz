@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ProjectionMapPoint } from '@/types/scene'
+import type { ProjectionMapPoint } from '../types'
 import { SceneAvailabilityProbe } from './sceneAvailability'
 
 function scene(scene_name: string, split: ProjectionMapPoint['split']): ProjectionMapPoint {

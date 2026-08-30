@@ -27,7 +27,7 @@ describe('glyphAtlasSourceRect', () => {
   })
 })
 
-describe('GlyphAtlasLoader', () => {
+describe('glyph atlas', () => {
   it('deduplicates concurrent callers into one atlas request and decode', async () => {
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
     const fetchImage = vi.fn().mockResolvedValue(response())

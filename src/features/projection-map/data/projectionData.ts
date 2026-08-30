@@ -1,4 +1,4 @@
-import type { ProjectionMapPoint } from '@/types/scene'
+import type { ProjectionMapPoint } from '../types'
 
 export type ProjectionPayload = {
   scene_counts: number

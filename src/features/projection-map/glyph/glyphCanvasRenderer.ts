@@ -1,5 +1,14 @@
 import { glyphAtlasSourceRect } from './glyphAtlas'
-import { svgTokens } from './styleConfig'
+
+const MIN_PIXEL_RATIO = 1
+const MAX_PIXEL_RATIO = 2
+const HOVER_SHADOW = 'rgb(15 23 42 / 32%)'
+const SELECTED_STROKE = '#f88f06'
+
+export function resolveGlyphCanvasPixelRatio(devicePixelRatio?: number): number {
+  if (!Number.isFinite(devicePixelRatio)) return MIN_PIXEL_RATIO
+  return Math.min(MAX_PIXEL_RATIO, Math.max(MIN_PIXEL_RATIO, devicePixelRatio ?? 1))
+}
 
 export type GlyphScreenPoint = {
   sceneName: string
@@ -99,7 +108,7 @@ export function drawGlyphCanvas(
     context.save()
     context.globalAlpha = options.opacity ?? 1
     if (isHovered) {
-      context.shadowColor = svgTokens.glyph.hoverShadow
+      context.shadowColor = HOVER_SHADOW
       context.shadowBlur = 10
       context.shadowOffsetY = 3
     }
@@ -109,7 +118,7 @@ export function drawGlyphCanvas(
       context.shadowColor = 'transparent'
       context.shadowBlur = 0
       context.shadowOffsetY = 0
-      context.strokeStyle = svgTokens.glyph.selectedStroke
+      context.strokeStyle = SELECTED_STROKE
       context.lineWidth = 2.5
       context.strokeRect(left + 1.25, top + 1.25, size - 2.5, size - 2.5)
     }

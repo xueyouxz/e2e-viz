@@ -21,7 +21,7 @@ type FetchImage = (url: string) => Promise<Response>
 type DecodeImage = (blob: Blob) => Promise<ImageBitmap>
 type Wait = (delayMs: number) => Promise<void>
 
-type GlyphAtlasLoaderOptions = {
+interface GlyphAtlasLoaderOptions {
   fetchImage?: FetchImage
   decode?: DecodeImage
   wait?: Wait

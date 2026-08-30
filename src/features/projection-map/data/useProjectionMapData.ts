@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { projectionDataLoader } from '@/features/projection-map/data/projectionData'
-import type { ProjectionMapPoint, SplitName } from '@/types/scene'
+import { useEffect, useState } from 'react'
+import { projectionDataLoader } from './projectionData'
+import type { ProjectionMapPoint } from '../types'
 
 export function useProjectionMapData() {
   const cached = projectionDataLoader.peek()
@@ -38,17 +38,5 @@ export function useProjectionMapData() {
     }
   }, [])
 
-  const splitCounts = useMemo(
-    () =>
-      points.reduce<Record<SplitName, number>>(
-        (counts, point) => {
-          counts[point.split] += 1
-          return counts
-        },
-        { train: 0, val: 0 }
-      ),
-    [points]
-  )
-
-  return { points, splitCounts, loading, error }
+  return { points, loading, error }
 }

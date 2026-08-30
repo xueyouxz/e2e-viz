@@ -28,9 +28,9 @@ test('collects only the static dependency graph needed by the projection route',
       file: 'assets/index.js',
       isEntry: true,
       imports: ['_react.js', '_router.js'],
-      dynamicImports: ['src/pages/ProjectionMapPage.tsx', 'src/pages/SceneViewerRoute.tsx']
+      dynamicImports: ['src/features/projection-map/index.tsx', 'src/pages/SceneViewerRoute.tsx']
     },
-    'src/pages/ProjectionMapPage.tsx': {
+    'src/features/projection-map/index.tsx': {
       file: 'assets/ProjectionMapPage.js',
       imports: ['_react.js', '_projection-data.js']
     },

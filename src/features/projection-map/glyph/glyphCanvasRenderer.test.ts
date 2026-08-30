@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { drawGlyphCanvas, hitTestGlyph, type GlyphCanvasContext } from './glyphCanvasRenderer'
+import {
+  drawGlyphCanvas,
+  hitTestGlyph,
+  resolveGlyphCanvasPixelRatio,
+  type GlyphCanvasContext
+} from './glyphCanvasRenderer'
 
 function context(): GlyphCanvasContext {
   return {
@@ -43,6 +48,18 @@ describe('hitTestGlyph', () => {
       { sceneName: 'scene-0001', x: 105, y: 105, selected: false }
     ]
     expect(hitTestGlyph(points, 103, 103, 50, 'scene-0000')?.sceneName).toBe('scene-0000')
+  })
+})
+
+describe('resolveGlyphCanvasPixelRatio', () => {
+  it.each([
+    [undefined, 1],
+    [Number.NaN, 1],
+    [0.75, 1],
+    [1.5, 1.5],
+    [3, 2]
+  ])('maps %s to %s', (devicePixelRatio, expected) => {
+    expect(resolveGlyphCanvasPixelRatio(devicePixelRatio)).toBe(expected)
   })
 })
 
