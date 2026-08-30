@@ -2,23 +2,9 @@ import { useLayoutEffect } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-
-// ─── Module-level temporaries ─────────────────────────────────────────────────
-// Safe to share across layers: all usages are synchronous and non-reentrant.
-
-export const _col = new THREE.Color()
-export const _v3 = new THREE.Vector3()
-export const _mat4 = new THREE.Matrix4()
-export const _pos = new THREE.Vector3()
-export const _quat = new THREE.Quaternion()
-export const _scl = new THREE.Vector3()
+import type { EgoPose } from '../types'
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-
-/** Normalise a single datum or array to always be an array. */
-export function normalizeDatum<T>(data: T | T[]): T[] {
-  return Array.isArray(data) ? data : [data]
-}
 
 /**
  * Smallest power-of-two ≥ n.
@@ -29,6 +15,37 @@ export function nextPowerOfTwo(n: number): number {
   let p = 1
   while (p < n) p <<= 1
   return p
+}
+
+export interface CoordinateTransformScratch {
+  position: THREE.Vector3
+  quaternion: THREE.Quaternion
+  scale: THREE.Vector3
+}
+
+export function createCoordinateTransformScratch(): CoordinateTransformScratch {
+  return {
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    scale: new THREE.Vector3(1, 1, 1)
+  }
+}
+
+export function updateCoordinateTransformInPlace(
+  target: THREE.Matrix4,
+  coordinate: 'world' | 'ego',
+  egoPose: EgoPose | null,
+  scratch: CoordinateTransformScratch
+): void {
+  if (coordinate !== 'ego' || !egoPose) {
+    target.identity()
+    return
+  }
+
+  const { translation, rotation } = egoPose
+  scratch.position.set(translation[0], translation[1], translation[2])
+  scratch.quaternion.set(rotation[1], rotation[2], rotation[3], rotation[0])
+  target.compose(scratch.position, scratch.quaternion, scratch.scale)
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────

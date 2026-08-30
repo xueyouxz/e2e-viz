@@ -1,9 +1,13 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { useSceneStore, useSceneStoreApi } from '../context'
-import { useCoordinateTransform } from '../hooks/useCoordinateTransform'
-import { _col, nextPowerOfTwo } from './_shared'
-import type { PointPayload, LayerRendererProps, StyleConfig } from '../types'
+import { useFrame } from '@react-three/fiber'
+import { useSceneStoreApi } from '../context'
+import {
+  createCoordinateTransformScratch,
+  nextPowerOfTwo,
+  updateCoordinateTransformInPlace
+} from './rendererResources'
+import type { EgoPose, LayerRendererProps, PointPayload } from '../types'
 
 // White → orange → red heat colormap for intensity values in [0, 255].
 function intensityToRgb(v: number, out: Float32Array, offset: number): void {
@@ -21,89 +25,158 @@ function intensityToRgb(v: number, out: Float32Array, offset: number): void {
   }
 }
 
+function createGeometry(capacity: number): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry()
+  const position = new THREE.BufferAttribute(new Float32Array(capacity * 3), 3)
+  const color = new THREE.BufferAttribute(new Float32Array(capacity * 3), 3)
+  position.setUsage(THREE.DynamicDrawUsage)
+  color.setUsage(THREE.DynamicDrawUsage)
+  geometry.setAttribute('position', position)
+  geometry.setAttribute('color', color)
+  geometry.setDrawRange(0, 0)
+  return geometry
+}
+
 export function PointRenderer({ streamName, style }: LayerRendererProps) {
   const store = useSceneStoreApi()
-  const meta = useSceneStore(s => s.streamsMeta[streamName])
-  const payload = useSceneStore(s => s.streamState[streamName]) as PointPayload | undefined
-  const visible = useSceneStore(s => s.visibleStreams[streamName] ?? true)
-  const frameIndex = useSceneStore(s => (style.styleFn != null ? s.frameIndex : 0))
-  const matrix = useCoordinateTransform(meta?.coordinate ?? 'world')
+  const groupRef = useRef<THREE.Group>(null)
+  const styleRef = useRef(style)
+  useLayoutEffect(() => {
+    styleRef.current = style
+  }, [style])
 
-  const effectiveStyle = useMemo<StyleConfig>(() => {
-    if (!style.styleFn) return style
-    const metrics = store.getState().statistics?.metrics ?? null
-    return { ...style, ...style.styleFn({ frameIndex, metrics }) }
-  }, [style, frameIndex, store])
+  const resources = useMemo(() => {
+    const material = new THREE.PointsMaterial({
+      size: 0.1,
+      vertexColors: true,
+      sizeAttenuation: true
+    })
+    const geometry = createGeometry(1)
+    const points = new THREE.Points(geometry, material)
+    points.frustumCulled = false
+    return {
+      points,
+      material,
+      geometry,
+      capacity: 1,
+      color: new THREE.Color(),
+      transformScratch: createCoordinateTransformScratch()
+    }
+  }, [])
 
-  // ── Persistent geometry — reallocated only when point count exceeds capacity ──
-  const geoRef = useRef<THREE.BufferGeometry | null>(null)
-  const capacityRef = useRef(0)
+  const previous = useRef<{
+    payload?: PointPayload
+    visible: boolean
+    coordinate: 'world' | 'ego'
+    egoPose: EgoPose | null
+    color?: string
+    opacity: number
+    renderOrder: number
+  }>({
+    visible: true,
+    coordinate: 'world',
+    egoPose: null,
+    opacity: Number.NaN,
+    renderOrder: Number.NaN
+  })
 
-  const geometry = useMemo(() => {
-    const points = payload?.points
-    const intensities = payload?.intensity ?? undefined
-    const n = points ? (points.length / 3) | 0 : 0
+  useFrame(() => {
+    const group = groupRef.current
+    if (!group) return
 
-    if (!geoRef.current || n > capacityRef.current) {
-      geoRef.current?.dispose()
-      const cap = nextPowerOfTwo(n)
-      const geo = new THREE.BufferGeometry()
-      const posAttr = new THREE.BufferAttribute(new Float32Array(cap * 3), 3)
-      const colAttr = new THREE.BufferAttribute(new Float32Array(cap * 3), 3)
-      posAttr.setUsage(THREE.DynamicDrawUsage)
-      colAttr.setUsage(THREE.DynamicDrawUsage)
-      geo.setAttribute('position', posAttr)
-      geo.setAttribute('color', colAttr)
-      geoRef.current = geo
-      capacityRef.current = cap
+    const state = store.getState()
+    const payload = state.streamState[streamName] as PointPayload | undefined
+    const visible = state.visibleStreams[streamName] ?? true
+    const coordinate = state.streamsMeta[streamName]?.coordinate ?? 'world'
+    const currentStyle = styleRef.current
+    const override = currentStyle.styleFn?.({
+      frameIndex: state.frameIndex,
+      metrics: state.statistics?.metrics ?? null
+    })
+    const color = override?.color ?? currentStyle.color ?? '#ffffff'
+    const opacity = override?.opacity ?? currentStyle.opacity ?? 1
+    const renderOrder = override?.renderOrder ?? currentStyle.renderOrder ?? 0
+    const prev = previous.current
+
+    if (coordinate !== prev.coordinate || state.egoPose !== prev.egoPose) {
+      updateCoordinateTransformInPlace(
+        group.matrix,
+        coordinate,
+        state.egoPose,
+        resources.transformScratch
+      )
+      group.matrixWorldNeedsUpdate = true
+      prev.coordinate = coordinate
+      prev.egoPose = state.egoPose
     }
 
-    const geo = geoRef.current!
-    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute
-    const colAttr = geo.getAttribute('color') as THREE.BufferAttribute
-    const posArr = posAttr.array as Float32Array
-    const colArr = colAttr.array as Float32Array
+    if (visible !== prev.visible) {
+      resources.points.visible = visible
+      prev.visible = visible
+    }
 
-    _col.set(effectiveStyle.color ?? '#ffffff')
-    const dr = _col.r,
-      dg = _col.g,
-      db = _col.b
+    if (opacity !== prev.opacity) {
+      resources.material.opacity = opacity
+      resources.material.transparent = opacity < 1
+      resources.material.needsUpdate = true
+      prev.opacity = opacity
+    }
+    if (renderOrder !== prev.renderOrder) {
+      resources.points.renderOrder = renderOrder
+      prev.renderOrder = renderOrder
+    }
 
-    if (points && n > 0) {
-      posArr.set(points.subarray(0, n * 3), 0)
-      if (intensities) {
-        for (let i = 0; i < n; i++) intensityToRgb(intensities[i] ?? 0, colArr, i * 3)
+    if (payload === prev.payload && (payload?.intensity || color === prev.color)) return
+    prev.payload = payload
+    prev.color = color
+
+    const count = payload?.type === 'point' ? Math.floor(payload.points.length / 3) : 0
+    if (count > resources.capacity) {
+      const capacity = nextPowerOfTwo(count)
+      const geometry = createGeometry(capacity)
+      resources.geometry.dispose()
+      resources.geometry = geometry
+      resources.capacity = capacity
+      resources.points.geometry = geometry
+    }
+
+    const position = resources.geometry.getAttribute('position') as THREE.BufferAttribute
+    const colors = resources.geometry.getAttribute('color') as THREE.BufferAttribute
+    if (payload?.type === 'point' && count > 0) {
+      const positionArray = position.array as Float32Array
+      const colorArray = colors.array as Float32Array
+      positionArray.set(payload.points.subarray(0, count * 3))
+
+      if (payload.intensity) {
+        for (let i = 0; i < count; i++) {
+          intensityToRgb(payload.intensity[i] ?? 0, colorArray, i * 3)
+        }
       } else {
-        for (let i = 0; i < n; i++) {
-          colArr[i * 3] = dr
-          colArr[i * 3 + 1] = dg
-          colArr[i * 3 + 2] = db
+        resources.color.set(color)
+        for (let i = 0; i < count; i++) {
+          const offset = i * 3
+          colorArray[offset] = resources.color.r
+          colorArray[offset + 1] = resources.color.g
+          colorArray[offset + 2] = resources.color.b
         }
       }
+      position.needsUpdate = true
+      colors.needsUpdate = true
     }
+    resources.geometry.setDrawRange(0, count)
+  })
 
-    posAttr.needsUpdate = true
-    colAttr.needsUpdate = true
-    geo.setDrawRange(0, n)
-    return geo
-  }, [payload, effectiveStyle.color])
-
-  useEffect(() => () => geoRef.current?.dispose(), [])
-
-  if (!visible || !payload) return null
+  useEffect(
+    () => () => {
+      resources.geometry.dispose()
+      resources.material.dispose()
+    },
+    [resources]
+  )
 
   return (
-    <group matrix={matrix} matrixAutoUpdate={false}>
-      <points visible={visible} renderOrder={effectiveStyle.renderOrder ?? 0} frustumCulled={false}>
-        <primitive object={geometry} attach='geometry' />
-        <pointsMaterial
-          size={0.1}
-          vertexColors
-          sizeAttenuation
-          transparent={(effectiveStyle.opacity ?? 1) < 1}
-          opacity={effectiveStyle.opacity ?? 1}
-        />
-      </points>
+    <group ref={groupRef} matrixAutoUpdate={false}>
+      <primitive object={resources.points} />
     </group>
   )
 }

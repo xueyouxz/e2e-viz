@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { PointRenderer } from './PointRenderer'
 import { renderRenderer } from './__test__/rendererTestHarness'
 
+vi.mock('@react-three/fiber', () => ({
+  useFrame: vi.fn()
+}))
+
 describe('PointRenderer', () => {
   it('renders safely before the first point payload is available', () => {
     expect(() => renderRenderer(<PointRenderer streamName='lidar' style={{}} />)).not.toThrow()

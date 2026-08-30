@@ -1,213 +1,327 @@
-import { useMemo, useEffect, useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { useFrame } from '@react-three/fiber'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import { useSceneStore, useSceneStoreApi } from '../context'
-import { useCoordinateTransform } from '../hooks/useCoordinateTransform'
-import { _col, useLineMaterialResolution } from './_shared'
-import type { PolygonPayload, LayerRendererProps, StyleConfig } from '../types'
+import { useSceneStoreApi } from '../context'
+import {
+  createCoordinateTransformScratch,
+  nextPowerOfTwo,
+  updateCoordinateTransformInPlace,
+  useLineMaterialResolution
+} from './rendererResources'
+import type { EgoPose, LayerRendererProps, PolygonPayload } from '../types'
 
-interface PolygonGeoSet {
-  fillGeo: THREE.BufferGeometry | null
-  outlinePositions: Float32Array
-  outlineColors: Float32Array
-}
-
-function buildGeometries(
-  payload: PolygonPayload,
-  fillColor: string,
-  outlineColor: string
-): PolygonGeoSet {
-  const { vertices, offsets, count } = payload
-
-  // Pre-compute fill and outline colors once — no per-polygon color in PolygonPayload.
-  _col.set(fillColor)
-  const fr = _col.r,
-    fg = _col.g,
-    fb = _col.b
-  _col.set(outlineColor)
-  const or = _col.r,
-    og = _col.g,
-    ob = _col.b
-
-  let totalFillVerts = 0,
-    totalFillIndices = 0,
-    totalOutlineFloats = 0
-
-  // First pass: triangulate each polygon and calculate buffer sizes.
-  const triSets: number[][] = []
-  const vertCounts: number[] = []
-
-  for (let i = 0; i < count; i++) {
-    const start = offsets[i],
-      end = offsets[i + 1]
-    const vertCount = end - start
-    if (vertCount < 3) {
-      triSets.push([])
-      vertCounts.push(0)
-      continue
-    }
-
-    const pts2d: THREE.Vector2[] = []
-    for (let j = start; j < end; j++) {
-      pts2d.push(new THREE.Vector2(vertices[j * 3], vertices[j * 3 + 1]))
-    }
-    const faces = THREE.ShapeUtils.triangulateShape(pts2d, [])
-    triSets.push(faces.flat())
-    vertCounts.push(vertCount)
-    totalFillVerts += vertCount
-    totalFillIndices += faces.length * 3
-    totalOutlineFloats += vertCount * 6
-  }
-
-  if (totalFillVerts === 0) {
-    return {
-      fillGeo: null,
-      outlinePositions: new Float32Array(0),
-      outlineColors: new Float32Array(0)
-    }
-  }
-
-  const fillPositions = new Float32Array(totalFillVerts * 3)
-  const fillColors = new Float32Array(totalFillVerts * 3)
-  const fillIndices = new Uint32Array(totalFillIndices)
-  const outlinePositions = new Float32Array(totalOutlineFloats)
-  const outlineColors = new Float32Array(totalOutlineFloats)
-
-  let vOff = 0,
-    iOff = 0,
-    outOff = 0
-
-  for (let i = 0; i < count; i++) {
-    const vertCount = vertCounts[i]
-    if (vertCount === 0) continue
-
-    const start = offsets[i]
-
-    for (let j = 0; j < vertCount; j++) {
-      const src = (start + j) * 3
-      fillPositions[(vOff + j) * 3] = vertices[src]
-      fillPositions[(vOff + j) * 3 + 1] = vertices[src + 1]
-      fillPositions[(vOff + j) * 3 + 2] = vertices[src + 2]
-      fillColors[(vOff + j) * 3] = fr
-      fillColors[(vOff + j) * 3 + 1] = fg
-      fillColors[(vOff + j) * 3 + 2] = fb
-    }
-
-    const faces = triSets[i]
-    for (let j = 0; j < faces.length; j++) {
-      fillIndices[iOff + j] = faces[j] + vOff
-    }
-
-    for (let j = 0; j < vertCount; j++) {
-      const a = (start + j) * 3
-      const b = (start + ((j + 1) % vertCount)) * 3
-      outlinePositions[outOff] = vertices[a]
-      outlinePositions[outOff + 1] = vertices[a + 1]
-      outlinePositions[outOff + 2] = vertices[a + 2]
-      outlinePositions[outOff + 3] = vertices[b]
-      outlinePositions[outOff + 4] = vertices[b + 1]
-      outlinePositions[outOff + 5] = vertices[b + 2]
-      outlineColors[outOff] = or
-      outlineColors[outOff + 1] = og
-      outlineColors[outOff + 2] = ob
-      outlineColors[outOff + 3] = or
-      outlineColors[outOff + 4] = og
-      outlineColors[outOff + 5] = ob
-      outOff += 6
-    }
-
-    vOff += vertCount
-    iOff += faces.length
-  }
-
-  const fillGeo = new THREE.BufferGeometry()
-  fillGeo.setAttribute('position', new THREE.BufferAttribute(fillPositions, 3))
-  fillGeo.setAttribute('color', new THREE.BufferAttribute(fillColors, 3))
-  fillGeo.setIndex(new THREE.BufferAttribute(fillIndices, 1))
-
-  return { fillGeo, outlinePositions, outlineColors }
+function createDynamicAttribute(length: number, itemSize: number): THREE.BufferAttribute {
+  const attribute = new THREE.BufferAttribute(new Float32Array(length), itemSize)
+  attribute.setUsage(THREE.DynamicDrawUsage)
+  return attribute
 }
 
 export function PolygonRenderer({ streamName, style }: LayerRendererProps) {
   const store = useSceneStoreApi()
-  const meta = useSceneStore(s => s.streamsMeta[streamName])
-  const payload = useSceneStore(s => s.streamState[streamName]) as PolygonPayload | undefined
-  const visible = useSceneStore(s => s.visibleStreams[streamName] ?? true)
-  const frameIndex = useSceneStore(s => (style.styleFn != null ? s.frameIndex : 0))
-  const matrix = useCoordinateTransform(meta?.coordinate ?? 'world')
+  const groupRef = useRef<THREE.Group>(null)
+  const styleRef = useRef(style)
+  useLayoutEffect(() => {
+    styleRef.current = style
+  }, [style])
 
-  const effectiveStyle = useMemo<StyleConfig>(() => {
-    if (!style.styleFn) return style
-    const metrics = store.getState().statistics?.metrics ?? null
-    return { ...style, ...style.styleFn({ frameIndex, metrics }) }
-  }, [style, frameIndex, store])
-
-  const fillColor = effectiveStyle.color ?? '#4488ff'
-  const outlineColor = effectiveStyle.outlineColor ?? fillColor
-
-  const geoSet = useMemo(
-    () => (payload ? buildGeometries(payload, fillColor, outlineColor) : null),
-    [payload, fillColor, outlineColor]
-  )
-
-  useEffect(() => () => geoSet?.fillGeo?.dispose(), [geoSet])
-
-  const outlinePair = useMemo(() => {
-    if (!geoSet || geoSet.outlinePositions.length === 0) return null
-
-    const geo = new LineSegmentsGeometry()
-    geo.setPositions(geoSet.outlinePositions)
-    geo.setColors(geoSet.outlineColors)
-
-    const mat = new LineMaterial({
+  const resources = useMemo(() => {
+    const fillGeometry = new THREE.BufferGeometry()
+    fillGeometry.setDrawRange(0, 0)
+    const fillMaterial = new THREE.MeshBasicMaterial({
       vertexColors: true,
-      linewidth: effectiveStyle.outlineWidth ?? 1.5,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      depthTest: false
+    })
+    const fillMesh = new THREE.Mesh(fillGeometry, fillMaterial)
+    fillMesh.frustumCulled = false
+
+    const outlineGeometry = new LineSegmentsGeometry()
+    outlineGeometry.instanceCount = 0
+    const outlineMaterial = new LineMaterial({
+      vertexColors: true,
       resolution: new THREE.Vector2(1, 1),
       transparent: true,
       depthTest: false,
       depthWrite: false,
       toneMapped: false
     })
+    const outlineLines = new LineSegments2(outlineGeometry, outlineMaterial)
+    outlineLines.frustumCulled = false
 
-    const lines = new LineSegments2(geo, mat)
-    lines.renderOrder = (effectiveStyle.renderOrder ?? 0) + 1
-    return { lines, mat }
-  }, [geoSet, effectiveStyle.outlineWidth, effectiveStyle.renderOrder])
+    const container = new THREE.Group()
+    container.add(fillMesh, outlineLines)
 
-  useLineMaterialResolution(outlinePair?.mat)
-
-  useLayoutEffect(() => {
-    if (outlinePair) outlinePair.lines.renderOrder = (effectiveStyle.renderOrder ?? 0) + 1
-  }, [outlinePair, effectiveStyle.renderOrder])
-
-  useEffect(() => {
-    return () => {
-      outlinePair?.lines.geometry.dispose()
-      outlinePair?.mat.dispose()
+    return {
+      container,
+      fillGeometry,
+      fillMaterial,
+      fillMesh,
+      outlineGeometry,
+      outlineMaterial,
+      outlineLines,
+      fillVertexCapacity: 0,
+      fillIndexCapacity: 0,
+      outlineSegmentCapacity: 0,
+      outlinePositionBuffer: null as THREE.InstancedInterleavedBuffer | null,
+      outlineColorBuffer: null as THREE.InstancedInterleavedBuffer | null,
+      fillColor: new THREE.Color(),
+      outlineColor: new THREE.Color(),
+      points2d: [] as THREE.Vector2[],
+      holes: [] as THREE.Vector2[][],
+      transformScratch: createCoordinateTransformScratch()
     }
-  }, [outlinePair])
+  }, [])
+  useLineMaterialResolution(resources.outlineMaterial)
 
-  if (!visible || !geoSet) return null
+  const previous = useRef<{
+    payload?: PolygonPayload
+    visible: boolean
+    coordinate: 'world' | 'ego'
+    egoPose: EgoPose | null
+    fillColor?: string
+    outlineColor?: string
+    opacity: number
+    outlineWidth: number
+    renderOrder: number
+  }>({
+    visible: true,
+    coordinate: 'world',
+    egoPose: null,
+    opacity: Number.NaN,
+    outlineWidth: Number.NaN,
+    renderOrder: Number.NaN
+  })
+
+  useFrame(() => {
+    const group = groupRef.current
+    if (!group) return
+
+    const state = store.getState()
+    const payload = state.streamState[streamName] as PolygonPayload | undefined
+    const visible = state.visibleStreams[streamName] ?? true
+    const coordinate = state.streamsMeta[streamName]?.coordinate ?? 'world'
+    const currentStyle = styleRef.current
+    const override = currentStyle.styleFn?.({
+      frameIndex: state.frameIndex,
+      metrics: state.statistics?.metrics ?? null
+    })
+    const fillColor = override?.color ?? currentStyle.color ?? '#4488ff'
+    const outlineColor = override?.outlineColor ?? currentStyle.outlineColor ?? fillColor
+    const opacity = override?.opacity ?? currentStyle.opacity ?? 0.35
+    const outlineWidth = override?.outlineWidth ?? currentStyle.outlineWidth ?? 1.5
+    const renderOrder = override?.renderOrder ?? currentStyle.renderOrder ?? 0
+    const prev = previous.current
+
+    if (coordinate !== prev.coordinate || state.egoPose !== prev.egoPose) {
+      updateCoordinateTransformInPlace(
+        group.matrix,
+        coordinate,
+        state.egoPose,
+        resources.transformScratch
+      )
+      group.matrixWorldNeedsUpdate = true
+      prev.coordinate = coordinate
+      prev.egoPose = state.egoPose
+    }
+    if (visible !== prev.visible) {
+      resources.container.visible = visible
+      prev.visible = visible
+    }
+    if (opacity !== prev.opacity) {
+      resources.fillMaterial.opacity = opacity
+      resources.fillMaterial.needsUpdate = true
+      prev.opacity = opacity
+    }
+    if (outlineWidth !== prev.outlineWidth) {
+      resources.outlineMaterial.linewidth = outlineWidth
+      prev.outlineWidth = outlineWidth
+    }
+    if (renderOrder !== prev.renderOrder) {
+      resources.fillMesh.renderOrder = renderOrder
+      resources.outlineLines.renderOrder = renderOrder + 1
+      prev.renderOrder = renderOrder
+    }
+
+    if (
+      payload === prev.payload &&
+      fillColor === prev.fillColor &&
+      outlineColor === prev.outlineColor
+    ) {
+      return
+    }
+    prev.payload = payload
+    prev.fillColor = fillColor
+    prev.outlineColor = outlineColor
+
+    if (!payload || payload.type !== 'polygon') {
+      resources.fillGeometry.setDrawRange(0, 0)
+      resources.outlineGeometry.instanceCount = 0
+      return
+    }
+
+    let fillVertexCount = 0
+    let maximumIndexCount = 0
+    let outlineSegmentCount = 0
+    for (let polygon = 0; polygon < payload.count; polygon++) {
+      const vertexCount = payload.offsets[polygon + 1] - payload.offsets[polygon]
+      if (vertexCount < 3) continue
+      fillVertexCount += vertexCount
+      maximumIndexCount += (vertexCount - 2) * 3
+      outlineSegmentCount += vertexCount
+    }
+
+    if (fillVertexCount === 0) {
+      resources.fillGeometry.setDrawRange(0, 0)
+      resources.outlineGeometry.instanceCount = 0
+      return
+    }
+
+    if (fillVertexCount > resources.fillVertexCapacity) {
+      resources.fillVertexCapacity = nextPowerOfTwo(fillVertexCount)
+      resources.fillGeometry.setAttribute(
+        'position',
+        createDynamicAttribute(resources.fillVertexCapacity * 3, 3)
+      )
+      resources.fillGeometry.setAttribute(
+        'color',
+        createDynamicAttribute(resources.fillVertexCapacity * 3, 3)
+      )
+    }
+    if (maximumIndexCount > resources.fillIndexCapacity) {
+      resources.fillIndexCapacity = nextPowerOfTwo(maximumIndexCount)
+      const index = new THREE.BufferAttribute(new Uint32Array(resources.fillIndexCapacity), 1)
+      index.setUsage(THREE.DynamicDrawUsage)
+      resources.fillGeometry.setIndex(index)
+    }
+    if (outlineSegmentCount > resources.outlineSegmentCapacity) {
+      resources.outlineSegmentCapacity = nextPowerOfTwo(outlineSegmentCount)
+      const positions = new THREE.InstancedInterleavedBuffer(
+        new Float32Array(resources.outlineSegmentCapacity * 6),
+        6,
+        1
+      )
+      const colors = new THREE.InstancedInterleavedBuffer(
+        new Float32Array(resources.outlineSegmentCapacity * 6),
+        6,
+        1
+      )
+      positions.setUsage(THREE.DynamicDrawUsage)
+      colors.setUsage(THREE.DynamicDrawUsage)
+      resources.outlineGeometry.setAttribute(
+        'instanceStart',
+        new THREE.InterleavedBufferAttribute(positions, 3, 0)
+      )
+      resources.outlineGeometry.setAttribute(
+        'instanceEnd',
+        new THREE.InterleavedBufferAttribute(positions, 3, 3)
+      )
+      resources.outlineGeometry.setAttribute(
+        'instanceColorStart',
+        new THREE.InterleavedBufferAttribute(colors, 3, 0)
+      )
+      resources.outlineGeometry.setAttribute(
+        'instanceColorEnd',
+        new THREE.InterleavedBufferAttribute(colors, 3, 3)
+      )
+      resources.outlinePositionBuffer = positions
+      resources.outlineColorBuffer = colors
+    }
+
+    const fillPosition = resources.fillGeometry.getAttribute('position') as THREE.BufferAttribute
+    const fillColors = resources.fillGeometry.getAttribute('color') as THREE.BufferAttribute
+    const fillIndex = resources.fillGeometry.getIndex()
+    const outlinePositions = resources.outlinePositionBuffer
+    const outlineColors = resources.outlineColorBuffer
+    if (!fillIndex || !outlinePositions || !outlineColors) return
+
+    const vertices = payload.vertices
+    const fillPositionArray = fillPosition.array as Float32Array
+    const fillColorArray = fillColors.array as Float32Array
+    const fillIndexArray = fillIndex.array as Uint32Array
+    const outlinePositionArray = outlinePositions.array
+    const outlineColorArray = outlineColors.array
+    resources.fillColor.set(fillColor)
+    resources.outlineColor.set(outlineColor)
+
+    let fillVertexOffset = 0
+    let fillIndexOffset = 0
+    let outlineOffset = 0
+    for (let polygon = 0; polygon < payload.count; polygon++) {
+      const start = payload.offsets[polygon]
+      const end = payload.offsets[polygon + 1]
+      const vertexCount = end - start
+      if (vertexCount < 3) continue
+
+      while (resources.points2d.length < vertexCount) {
+        resources.points2d.push(new THREE.Vector2())
+      }
+      resources.points2d.length = vertexCount
+      for (let vertex = 0; vertex < vertexCount; vertex++) {
+        const source = (start + vertex) * 3
+        resources.points2d[vertex].set(vertices[source], vertices[source + 1])
+
+        const fillOffset = (fillVertexOffset + vertex) * 3
+        fillPositionArray[fillOffset] = vertices[source]
+        fillPositionArray[fillOffset + 1] = vertices[source + 1]
+        fillPositionArray[fillOffset + 2] = vertices[source + 2]
+        fillColorArray[fillOffset] = resources.fillColor.r
+        fillColorArray[fillOffset + 1] = resources.fillColor.g
+        fillColorArray[fillOffset + 2] = resources.fillColor.b
+
+        const nextSource = (start + ((vertex + 1) % vertexCount)) * 3
+        outlinePositionArray[outlineOffset] = vertices[source]
+        outlinePositionArray[outlineOffset + 1] = vertices[source + 1]
+        outlinePositionArray[outlineOffset + 2] = vertices[source + 2]
+        outlinePositionArray[outlineOffset + 3] = vertices[nextSource]
+        outlinePositionArray[outlineOffset + 4] = vertices[nextSource + 1]
+        outlinePositionArray[outlineOffset + 5] = vertices[nextSource + 2]
+        outlineColorArray[outlineOffset] = resources.outlineColor.r
+        outlineColorArray[outlineOffset + 1] = resources.outlineColor.g
+        outlineColorArray[outlineOffset + 2] = resources.outlineColor.b
+        outlineColorArray[outlineOffset + 3] = resources.outlineColor.r
+        outlineColorArray[outlineOffset + 4] = resources.outlineColor.g
+        outlineColorArray[outlineOffset + 5] = resources.outlineColor.b
+        outlineOffset += 6
+      }
+
+      const faces = THREE.ShapeUtils.triangulateShape(resources.points2d, resources.holes)
+      for (const face of faces) {
+        fillIndexArray[fillIndexOffset++] = fillVertexOffset + face[0]
+        fillIndexArray[fillIndexOffset++] = fillVertexOffset + face[1]
+        fillIndexArray[fillIndexOffset++] = fillVertexOffset + face[2]
+      }
+      fillVertexOffset += vertexCount
+    }
+
+    fillPosition.needsUpdate = true
+    fillColors.needsUpdate = true
+    fillIndex.needsUpdate = true
+    resources.fillGeometry.setDrawRange(0, fillIndexOffset)
+    resources.fillGeometry.computeBoundingSphere()
+    outlinePositions.needsUpdate = true
+    outlineColors.needsUpdate = true
+    resources.outlineGeometry.instanceCount = outlineSegmentCount
+    resources.outlineGeometry.computeBoundingSphere()
+  })
+
+  useEffect(
+    () => () => {
+      resources.fillGeometry.dispose()
+      resources.fillMaterial.dispose()
+      resources.outlineGeometry.dispose()
+      resources.outlineMaterial.dispose()
+    },
+    [resources]
+  )
 
   return (
-    <group matrix={matrix} matrixAutoUpdate={false}>
-      <group visible={visible}>
-        {geoSet.fillGeo && (
-          <mesh geometry={geoSet.fillGeo} renderOrder={effectiveStyle.renderOrder ?? 0}>
-            <meshBasicMaterial
-              vertexColors
-              transparent
-              opacity={effectiveStyle.opacity ?? 0.35}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-              depthTest={false}
-            />
-          </mesh>
-        )}
-        {outlinePair && <primitive object={outlinePair.lines} />}
-      </group>
+    <group ref={groupRef} matrixAutoUpdate={false}>
+      <primitive object={resources.container} />
     </group>
   )
 }

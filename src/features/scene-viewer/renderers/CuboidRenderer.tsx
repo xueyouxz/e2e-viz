@@ -2,17 +2,16 @@ import { useRef, useMemo, useEffect, useLayoutEffect, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useSceneStoreApi } from '../context'
-import { _col, _v3, _mat4, _pos, _quat, _scl } from './_shared'
+import {
+  createCoordinateTransformScratch,
+  updateCoordinateTransformInPlace
+} from './rendererResources'
 import type { CuboidPayload, LayerRendererProps } from '../types'
 
 // ─── Capacity ─────────────────────────────────────────────────────────────────
 
 const MAX_CUBOIDS = 256
 const VERTS_PER_BOX = 24 // 12 edges × 2 endpoints
-
-// ─── Shared unit-box geometry (singleton, never disposed) ─────────────────────
-
-const UNIT_BOX_GEO = new THREE.BoxGeometry(1, 1, 1)
 
 // ─── Unit-cube edge table ─────────────────────────────────────────────────────
 
@@ -56,13 +55,6 @@ const UNIT_EDGE_POSITIONS: Float32Array = (() => {
   return buf
 })()
 
-// ─── Ego-transform temporaries ────────────────────────────────────────────────
-
-const _egoPos = new THREE.Vector3()
-const _egoQuat = new THREE.Quaternion()
-const _egoScale = new THREE.Vector3(1, 1, 1)
-const _egoMat = new THREE.Matrix4()
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CuboidRenderer({ streamName, style }: LayerRendererProps) {
@@ -75,64 +67,94 @@ export function CuboidRenderer({ streamName, style }: LayerRendererProps) {
   }, [style])
 
   // ── Persistent Three.js objects created once per mount ──────────────────────
-  const { fillMesh, fillMat, edgeMesh, edgeMat, edgePosFlat, edgeColFlat, edgeGeo } =
-    useMemo(() => {
-      const fillMat = new THREE.MeshBasicMaterial({
-        transparent: true,
-        depthTest: true,
-        depthWrite: false
-      })
-      const fillMesh = new THREE.InstancedMesh(UNIT_BOX_GEO, fillMat, MAX_CUBOIDS)
-      fillMesh.count = 0
-      fillMesh.frustumCulled = false
+  const {
+    unitBoxGeo,
+    fillMesh,
+    fillMat,
+    edgeMesh,
+    edgeMat,
+    edgePosFlat,
+    edgeColFlat,
+    edgeGeo,
+    color,
+    vertex,
+    matrix,
+    position,
+    quaternion,
+    scale,
+    transformScratch
+  } = useMemo(() => {
+    const unitBoxGeo = new THREE.BoxGeometry(1, 1, 1)
+    const fillMat = new THREE.MeshBasicMaterial({
+      transparent: true,
+      depthTest: true,
+      depthWrite: false
+    })
+    const fillMesh = new THREE.InstancedMesh(unitBoxGeo, fillMat, MAX_CUBOIDS)
+    fillMesh.count = 0
+    fillMesh.frustumCulled = false
 
-      // Pre-allocated flat edge buffers — mutated in-place every update
-      const edgePosFlat = new Float32Array(MAX_CUBOIDS * VERTS_PER_BOX * 3)
-      const edgeColFlat = new Float32Array(MAX_CUBOIDS * VERTS_PER_BOX * 3)
+    // Pre-allocated flat edge buffers — mutated in-place every update
+    const edgePosFlat = new Float32Array(MAX_CUBOIDS * VERTS_PER_BOX * 3)
+    const edgeColFlat = new Float32Array(MAX_CUBOIDS * VERTS_PER_BOX * 3)
 
-      const edgePosAttr = new THREE.BufferAttribute(edgePosFlat, 3)
-      const edgeColAttr = new THREE.BufferAttribute(edgeColFlat, 3)
-      edgePosAttr.setUsage(THREE.DynamicDrawUsage)
-      edgeColAttr.setUsage(THREE.DynamicDrawUsage)
+    const edgePosAttr = new THREE.BufferAttribute(edgePosFlat, 3)
+    const edgeColAttr = new THREE.BufferAttribute(edgeColFlat, 3)
+    edgePosAttr.setUsage(THREE.DynamicDrawUsage)
+    edgeColAttr.setUsage(THREE.DynamicDrawUsage)
 
-      const edgeGeo = new THREE.BufferGeometry()
-      edgeGeo.setAttribute('position', edgePosAttr)
-      edgeGeo.setAttribute('color', edgeColAttr)
-      edgeGeo.setDrawRange(0, 0)
+    const edgeGeo = new THREE.BufferGeometry()
+    edgeGeo.setAttribute('position', edgePosAttr)
+    edgeGeo.setAttribute('color', edgeColAttr)
+    edgeGeo.setDrawRange(0, 0)
 
-      const edgeMat = new THREE.LineBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-        toneMapped: false
-      })
-      const edgeMesh = new THREE.LineSegments(edgeGeo, edgeMat)
-      edgeMesh.frustumCulled = false
+    const edgeMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false
+    })
+    const edgeMesh = new THREE.LineSegments(edgeGeo, edgeMat)
+    edgeMesh.frustumCulled = false
 
-      return { fillMesh, fillMat, edgeMesh, edgeMat, edgePosFlat, edgeColFlat, edgeGeo }
-    }, [])
-
-  // Sync opacity / renderOrder (user-triggered, not per-frame)
-  useLayoutEffect(() => {
-    fillMat.opacity = style.opacity ?? 0.35
-    fillMat.transparent = (style.opacity ?? 0.35) < 1
-    fillMesh.renderOrder = style.renderOrder ?? 0
-    edgeMesh.renderOrder = (style.renderOrder ?? 0) + 10
-  }, [fillMesh, fillMat, edgeMesh, style.opacity, style.renderOrder])
+    return {
+      unitBoxGeo,
+      fillMesh,
+      fillMat,
+      edgeMesh,
+      edgeMat,
+      edgePosFlat,
+      edgeColFlat,
+      edgeGeo,
+      color: new THREE.Color(),
+      vertex: new THREE.Vector3(),
+      matrix: new THREE.Matrix4(),
+      position: new THREE.Vector3(),
+      quaternion: new THREE.Quaternion(),
+      scale: new THREE.Vector3(),
+      transformScratch: createCoordinateTransformScratch()
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
-      // UNIT_BOX_GEO is a shared singleton — never dispose it here.
+      unitBoxGeo.dispose()
       fillMat.dispose()
       edgeGeo.dispose()
       edgeMat.dispose()
     }
-  }, [fillMat, edgeGeo, edgeMat])
+  }, [unitBoxGeo, fillMat, edgeGeo, edgeMat])
 
   // ── Per-frame update — zero React subscriptions ─────────────────────────────
   const prevPayloadRef = useRef<CuboidPayload | undefined>(undefined)
   const prevVisibleRef = useRef(true)
+  const warnedPayloadRef = useRef<CuboidPayload | undefined>(undefined)
+  const previousOpacityRef = useRef(Number.NaN)
+  const previousRenderOrderRef = useRef(Number.NaN)
+  const previousColorRef = useRef<string | undefined>(undefined)
+  const previousCoordinateRef = useRef<'world' | 'ego'>('world')
+  const previousEgoPoseRef = useRef(store.getState().egoPose)
 
   // ── Click handler: select object by trackId ────────────────────────────────
   const handleClick = useCallback(
@@ -156,24 +178,49 @@ export function CuboidRenderer({ streamName, style }: LayerRendererProps) {
     const coordinate = state.streamsMeta[sName]?.coordinate ?? 'world'
 
     // Update coordinate transform in-place (avoids React reconciliation for matrix)
-    if (coordinate === 'ego' && state.egoPose) {
-      const { translation, rotation } = state.egoPose
-      _egoPos.set(translation[0], translation[1], translation[2])
-      _egoQuat.set(rotation[1], rotation[2], rotation[3], rotation[0]) // wxyz → xyzw
-      _egoMat.compose(_egoPos, _egoQuat, _egoScale)
-      group.matrix.copy(_egoMat)
-    } else {
-      group.matrix.identity()
+    if (
+      coordinate !== previousCoordinateRef.current ||
+      state.egoPose !== previousEgoPoseRef.current
+    ) {
+      updateCoordinateTransformInPlace(group.matrix, coordinate, state.egoPose, transformScratch)
+      group.matrixWorldNeedsUpdate = true
+      previousCoordinateRef.current = coordinate
+      previousEgoPoseRef.current = state.egoPose
     }
-    group.matrixWorldNeedsUpdate = true
 
     const payload = state.streamState[sName] as CuboidPayload | undefined
     const visible = state.visibleStreams[sName] ?? true
 
-    // Gate: skip buffer update if payload reference and visibility haven't changed
-    if (payload === prevPayloadRef.current && visible === prevVisibleRef.current) return
+    const s = styleRef.current
+    const override = s.styleFn?.({
+      frameIndex: state.frameIndex,
+      metrics: state.statistics?.metrics ?? null
+    })
+    const effectiveColor = override?.color ?? s.color ?? '#4b8cf8'
+    const opacity = override?.opacity ?? s.opacity ?? 0.35
+    const renderOrder = override?.renderOrder ?? s.renderOrder ?? 0
+    if (opacity !== previousOpacityRef.current) {
+      fillMat.opacity = opacity
+      fillMat.transparent = opacity < 1
+      previousOpacityRef.current = opacity
+    }
+    if (renderOrder !== previousRenderOrderRef.current) {
+      fillMesh.renderOrder = renderOrder
+      edgeMesh.renderOrder = renderOrder + 10
+      previousRenderOrderRef.current = renderOrder
+    }
+
+    // Gate: skip buffer update if payload reference and visibility haven't changed.
+    if (
+      payload === prevPayloadRef.current &&
+      visible === prevVisibleRef.current &&
+      effectiveColor === previousColorRef.current
+    ) {
+      return
+    }
     prevPayloadRef.current = payload
     prevVisibleRef.current = visible
+    previousColorRef.current = effectiveColor
 
     if (!visible || !payload || payload.type !== 'cuboid') {
       fillMesh.count = 0
@@ -181,46 +228,48 @@ export function CuboidRenderer({ streamName, style }: LayerRendererProps) {
       return
     }
 
+    if (payload.count > MAX_CUBOIDS && warnedPayloadRef.current !== payload) {
+      console.warn(
+        `[CuboidRenderer] ${streamName} exceeds ${MAX_CUBOIDS} cuboids; remaining cuboids were skipped.`
+      )
+      warnedPayloadRef.current = payload
+    }
+
     const count = Math.min(payload.count, MAX_CUBOIDS)
     fillMesh.count = count
 
-    const s = styleRef.current
-    const effectiveColor = s.styleFn
-      ? (s.styleFn({ frameIndex: state.frameIndex, metrics: state.statistics?.metrics ?? null })
-          .color ?? s.color)
-      : s.color
-    _col.set(effectiveColor ?? '#4b8cf8')
-    const { r, g, b } = _col
+    color.set(effectiveColor)
+    const { r, g, b } = color
 
     for (let i = 0; i < count; i++) {
-      _pos.set(payload.centers[i * 3], payload.centers[i * 3 + 1], payload.centers[i * 3 + 2])
+      position.set(payload.centers[i * 3], payload.centers[i * 3 + 1], payload.centers[i * 3 + 2])
       // nuScenes rotation: [w, x, y, z] → THREE.Quaternion(x, y, z, w)
-      _quat.set(
+      quaternion.set(
         payload.rotations[i * 4 + 1],
         payload.rotations[i * 4 + 2],
         payload.rotations[i * 4 + 3],
         payload.rotations[i * 4]
       )
       // nuScenes size: [width, length, height] → scale: x←length, y←width, z←height
-      _scl.set(payload.sizes[i * 3 + 1], payload.sizes[i * 3], payload.sizes[i * 3 + 2])
-      _mat4.compose(_pos, _quat, _scl)
+      scale.set(payload.sizes[i * 3 + 1], payload.sizes[i * 3], payload.sizes[i * 3 + 2])
+      matrix.compose(position, quaternion, scale)
 
-      fillMesh.setMatrixAt(i, _mat4)
-      fillMesh.setColorAt(i, _col)
+      fillMesh.setMatrixAt(i, matrix)
+      fillMesh.setColorAt(i, color)
 
       // Write world-space edge vertices into the flat buffer
       const base = i * VERTS_PER_BOX
       for (let v = 0; v < VERTS_PER_BOX; v++) {
-        _v3.set(
+        vertex.set(
           UNIT_EDGE_POSITIONS[v * 3],
           UNIT_EDGE_POSITIONS[v * 3 + 1],
           UNIT_EDGE_POSITIONS[v * 3 + 2]
         )
-        _v3.applyMatrix4(_mat4)
+        vertex.applyMatrix4(matrix)
         const off = (base + v) * 3
-        edgePosFlat[off] = _v3.x
-        edgePosFlat[off + 1] = _v3.y
-        edgePosFlat[off + 2] = _v3.z
+        edgePosFlat[off] = vertex.x
+        edgePosFlat[off + 1] = vertex.y
+        edgePosFlat[off + 2] = vertex.z
         edgeColFlat[off] = r
         edgeColFlat[off + 1] = g
         edgeColFlat[off + 2] = b

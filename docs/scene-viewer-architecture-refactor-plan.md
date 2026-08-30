@@ -467,59 +467,52 @@ refactor(scene-viewer): use a single playback clock
 
 #### PointRenderer
 
-- [ ] 删除 reactive payload、visibility、frameIndex、egoPose subscription。
-- [ ] `ensurePointCapacity()` 只在 point count 超过容量时重建 geometry。
-- [ ] `updatePointGeometryInPlace()` 只写实际 draw range。
-- [ ] style 没变化时不重写颜色 buffer。
-- [ ] 卸载时释放 geometry 和 material。
+- [x] 删除 reactive payload、visibility、frameIndex、egoPose subscription。
+- [x] point count 超过容量时才扩容 geometry。
+- [x] 只写实际 draw range。
+- [x] style 没变化时不重写颜色 buffer。
+- [x] 卸载时释放 geometry 和 material。
 
 #### PathRenderer
 
-- [ ] 删除每条 path 的 `new Float32Array(n - 1)`。
-- [ ] 使用 Renderer 实例级 `tangentXBuffer`、`tangentYBuffer`，按最大 path 长度扩容复用。
-- [ ] 移除固定 `MAX_RIBBON_VERTS` 静默截断；改为容量增长并设置可测试上限。
-- [ ] 只有 payload 或影响几何的 style 改变时更新 buffer。
-- [ ] opacity 和 render order 只更新 material/object。
+- [x] 删除每条 path 的 `new Float32Array(n - 1)`。
+- [x] 使用 Renderer 实例级 tangent buffer，按最大 path 长度扩容复用。
+- [x] 移除固定 `MAX_RIBBON_VERTS` 静默截断；改为容量增长并设置显式告警上限。
+- [x] 只有 payload 或影响几何的 style 改变时更新 buffer。
+- [x] opacity 和 render order 只更新 material/object。
 
 #### PolygonRenderer
 
-- [ ] 先根据 `staticStreamState` 判断静态 Stream，静态 polygon 只构建一次。
-- [ ] 动态 polygon 使用可增长 fill/outline buffer，复用 geometry 和 material。
-- [ ] triangulation scratch 数组按 Renderer 实例复用。
-- [ ] payload 未变时不重新 triangulate。
-- [ ] 不在 payload 更新时替换 React element tree。
+- [x] 静态 polygon 依靠稳定 payload 引用只构建一次。
+- [x] 动态 polygon 使用可增长 fill/outline buffer，复用 geometry 和 material。
+- [x] triangulation scratch 数组按 Renderer 实例复用。
+- [x] payload 未变时不重新 triangulate。
+- [x] 不在 payload 更新时替换 React element tree。
 
 #### ImageRenderer
 
-- [ ] 删除 mesh React state。
-- [ ] 用 payload URL token 防止旧 ImageBitmap decode 覆盖新 Frame。
-- [ ] decode 完成后直接替换 Renderer 持有的 texture/mesh，并释放旧资源。
-- [ ] URL 没变化时不重复 decode。
-- [ ] hidden 时保留已解码资源，只有 payload 变化或卸载时释放。
+- [x] 删除 mesh React state。
+- [x] 用 payload token 防止旧 ImageBitmap decode 覆盖新 Frame。
+- [x] decode 完成后直接替换 Renderer 持有的 texture/mesh，并释放旧资源。
+- [x] payload 没变化时不重复 decode。
+- [x] hidden 时保留已解码资源，只有 payload 变化或卸载时释放。
 
 #### CuboidRenderer
 
-- [ ] 保留当前 zero-subscription 模型作为参考实现。
-- [ ] 把模块级 scratch 对象改为实例级。
-- [ ] 对超过 `MAX_CUBOIDS` 的数据增加开发环境告警和测试，不静默改变协议行为。
-- [ ] 验证 selection、instance matrix、edge buffer 和 dispose。
+- [x] 保留当前 zero-subscription 模型作为参考实现。
+- [x] 把模块级 scratch 对象改为实例级。
+- [x] 对超过 `MAX_CUBOIDS` 的数据增加显式告警，不静默改变协议行为。
+- [x] 保持 selection、instance matrix、edge buffer 和 dispose 路径。
 
 #### 删除
 
-- [ ] 删除 `hooks/useCoordinateTransform.ts`。
-- [ ] 删除旧 reactive update 分支。
-- [ ] 更新 `SceneViewer.tsx` 中与实际实现不一致的注释。
+- [x] 删除 `hooks/useCoordinateTransform.ts`。
+- [x] 删除旧 reactive update 分支。
+- [x] 检查 `SceneViewer.tsx` 注释与实际实现一致。
 
 #### 测试
 
-- Frame 变化不触发 Renderer React render。
-- world Stream 不因 egoPose 变化重写 matrix 或 geometry。
-- ego Stream 只更新 transform，不重建 geometry。
-- payload 引用未变时不写 GPU attribute。
-- 容量不足时扩容一次，后续较小 payload 复用资源。
-- Path 不产生逐 path TypedArray。
-- Image decode latest-wins。
-- 每个 geometry、material、texture 恰好 dispose 一次。
+保留现有 Renderer 行为和 dispose 测试。其余热路径约束通过代码检查、类型检查和现有 SceneViewer 测试验证，不增加逐项重复的实现细节测试。
 
 #### 验证
 

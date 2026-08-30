@@ -1,122 +1,188 @@
-import { useMemo, useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { useSceneStore, useSceneStoreApi } from '../context'
-import { useCoordinateTransform } from '../hooks/useCoordinateTransform'
-import type { ImagePayload, LayerRendererProps, StyleConfig } from '../types'
+import { useFrame } from '@react-three/fiber'
+import { useSceneStoreApi } from '../context'
+import {
+  createCoordinateTransformScratch,
+  updateCoordinateTransformInPlace
+} from './rendererResources'
+import type { EgoPose, ImagePayload, LayerRendererProps } from '../types'
 
-// ImageBitmapLoader decodes images off the main thread via createImageBitmap(),
-// avoiding the 70ms+ main-thread PNG decode that TextureLoader triggers.
-const _loader = new THREE.ImageBitmapLoader()
-// imageOrientation:'flipY' pre-flips in the worker; texture.flipY stays false
-// to prevent a second flip during WebGL2 upload (UNPACK_FLIP_Y_WEBGL is no-op for ImageBitmap).
-_loader.setOptions({ imageOrientation: 'flipY' })
-
-function disposeMesh(mesh: THREE.Mesh) {
+function disposeMesh(mesh: THREE.Mesh): void {
   mesh.geometry.dispose()
-  const mat = mesh.material as THREE.MeshBasicMaterial
-  mat.map?.dispose()
-  mat.dispose()
+  const material = mesh.material as THREE.MeshBasicMaterial
+  const image = material.map?.image as { close?: () => void } | undefined
+  image?.close?.()
+  material.map?.dispose()
+  material.dispose()
 }
 
-function createMeshFromPayload(payload: ImagePayload, bitmap: ImageBitmap): THREE.Mesh | null {
-  if (!payload.bounds) return null
-  const { min_x, min_y, max_x, max_y } = payload.bounds
-  const width = max_x - min_x
-  const height = max_y - min_y
-  const cx = (min_x + max_x) / 2
-  const cy = (min_y + max_y) / 2
+function createMesh(payload: ImagePayload, bitmap: ImageBitmap): THREE.Mesh | null {
+  if (!payload.bounds) {
+    bitmap.close()
+    return null
+  }
 
+  const { min_x, min_y, max_x, max_y } = payload.bounds
   const texture = new THREE.Texture(bitmap)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.flipY = false
   texture.needsUpdate = true
-
-  const geo = new THREE.PlaneGeometry(width, height)
-  const mat = new THREE.MeshBasicMaterial({
+  const geometry = new THREE.PlaneGeometry(max_x - min_x, max_y - min_y)
+  const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
     side: THREE.DoubleSide,
     depthWrite: false,
     depthTest: false
   })
-
-  const mesh = new THREE.Mesh(geo, mat)
-  mesh.position.set(cx, cy, 0)
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.position.set((min_x + max_x) / 2, (min_y + max_y) / 2, 0)
   return mesh
 }
 
 export function ImageRenderer({ streamName, style }: LayerRendererProps) {
   const store = useSceneStoreApi()
-  const meta = useSceneStore(s => s.streamsMeta[streamName])
-  const payload = useSceneStore(s => s.streamState[streamName]) as ImagePayload | undefined
-  const visible = useSceneStore(s => s.visibleStreams[streamName] ?? true)
-  const frameIndex = useSceneStore(s => (style.styleFn != null ? s.frameIndex : 0))
-  const matrix = useCoordinateTransform(meta?.coordinate ?? 'world')
+  const groupRef = useRef<THREE.Group>(null)
+  const styleRef = useRef(style)
+  useLayoutEffect(() => {
+    styleRef.current = style
+  }, [style])
 
-  const effectiveStyle = useMemo<StyleConfig>(() => {
-    if (!style.styleFn) return style
-    const metrics = store.getState().statistics?.metrics ?? null
-    return { ...style, ...style.styleFn({ frameIndex, metrics }) }
-  }, [style, frameIndex, store])
+  const resources = useMemo(() => {
+    const loader = new THREE.ImageBitmapLoader()
+    loader.setOptions({ imageOrientation: 'flipY' })
+    return {
+      container: new THREE.Group(),
+      loader,
+      mesh: null as THREE.Mesh | null,
+      requestToken: 0,
+      mounted: true,
+      opacity: 1,
+      renderOrder: 0,
+      transformScratch: createCoordinateTransformScratch()
+    }
+  }, [])
 
-  const [mesh, setMesh] = useState<THREE.Mesh | null>(null)
+  const previous = useRef<{
+    payload?: ImagePayload
+    visible: boolean
+    coordinate: 'world' | 'ego'
+    egoPose: EgoPose | null
+    opacity: number
+    renderOrder: number
+  }>({
+    visible: true,
+    coordinate: 'world',
+    egoPose: null,
+    opacity: Number.NaN,
+    renderOrder: Number.NaN
+  })
 
-  // Async load: kicks off ImageBitmapLoader; decode runs off-thread.
-  useEffect(() => {
+  useFrame(() => {
+    const group = groupRef.current
+    if (!group) return
+
+    const state = store.getState()
+    const payload = state.streamState[streamName] as ImagePayload | undefined
+    const visible = state.visibleStreams[streamName] ?? true
+    const coordinate = state.streamsMeta[streamName]?.coordinate ?? 'world'
+    const currentStyle = styleRef.current
+    const override = currentStyle.styleFn?.({
+      frameIndex: state.frameIndex,
+      metrics: state.statistics?.metrics ?? null
+    })
+    const opacity = override?.opacity ?? currentStyle.opacity ?? 1
+    const renderOrder = override?.renderOrder ?? currentStyle.renderOrder ?? 0
+    const prev = previous.current
+
+    if (coordinate !== prev.coordinate || state.egoPose !== prev.egoPose) {
+      updateCoordinateTransformInPlace(
+        group.matrix,
+        coordinate,
+        state.egoPose,
+        resources.transformScratch
+      )
+      group.matrixWorldNeedsUpdate = true
+      prev.coordinate = coordinate
+      prev.egoPose = state.egoPose
+    }
+    if (visible !== prev.visible) {
+      resources.container.visible = visible
+      prev.visible = visible
+    }
+    if (opacity !== prev.opacity || renderOrder !== prev.renderOrder) {
+      resources.opacity = opacity
+      resources.renderOrder = renderOrder
+      if (resources.mesh) {
+        const material = resources.mesh.material as THREE.MeshBasicMaterial
+        material.opacity = opacity
+        material.transparent = opacity < 1
+        material.needsUpdate = true
+        resources.mesh.renderOrder = renderOrder
+      }
+      prev.opacity = opacity
+      prev.renderOrder = renderOrder
+    }
+
+    if (payload === prev.payload) return
+    prev.payload = payload
+    const requestToken = ++resources.requestToken
+
     if (!payload?.url || !payload.bounds) {
-      setMesh(null)
+      if (resources.mesh) {
+        resources.container.remove(resources.mesh)
+        disposeMesh(resources.mesh)
+        resources.mesh = null
+      }
       return
     }
 
-    let cancelled = false
-    const url = payload.url
-
-    new Promise<THREE.Mesh | null>((resolve, reject) => {
-      _loader.load(
-        url,
-        bitmap => resolve(createMeshFromPayload(payload, bitmap)),
-        undefined,
-        reject
-      )
-    })
-      .then(result => {
-        if (cancelled) {
-          if (result) disposeMesh(result)
-        } else {
-          setMesh(result)
+    resources.loader.load(
+      payload.url,
+      bitmap => {
+        if (!resources.mounted || requestToken !== resources.requestToken) {
+          bitmap.close()
+          return
         }
-      })
-      .catch(() => {
-        /* network errors are silent — mesh stays empty */
-      })
 
-    return () => {
-      cancelled = true
-    }
-  }, [payload])
+        const mesh = createMesh(payload, bitmap)
+        if (!mesh) return
+        const material = mesh.material as THREE.MeshBasicMaterial
+        material.opacity = resources.opacity
+        material.transparent = resources.opacity < 1
+        mesh.renderOrder = resources.renderOrder
 
-  // Dispose previous mesh whenever the loaded mesh is replaced.
+        if (resources.mesh) {
+          resources.container.remove(resources.mesh)
+          disposeMesh(resources.mesh)
+        }
+        resources.mesh = mesh
+        resources.container.add(mesh)
+      },
+      undefined,
+      () => {
+        // Keep the last valid image when the replacement cannot be decoded.
+      }
+    )
+  })
+
   useEffect(() => {
+    resources.mounted = true
     return () => {
-      if (mesh) disposeMesh(mesh)
+      resources.mounted = false
+      resources.requestToken++
+      if (resources.mesh) {
+        resources.container.remove(resources.mesh)
+        disposeMesh(resources.mesh)
+        resources.mesh = null
+      }
     }
-  }, [mesh])
-
-  // Opacity and renderOrder updated in-place — no texture reload.
-  useLayoutEffect(() => {
-    if (!mesh) return
-    const mat = mesh.material as THREE.MeshBasicMaterial
-    mat.opacity = effectiveStyle.opacity ?? 1
-    mat.transparent = (effectiveStyle.opacity ?? 1) < 1
-    mat.needsUpdate = true
-    mesh.renderOrder = effectiveStyle.renderOrder ?? 0
-  }, [mesh, effectiveStyle.opacity, effectiveStyle.renderOrder])
-
-  if (!visible || !mesh) return null
+  }, [resources])
 
   return (
-    <group matrix={matrix} matrixAutoUpdate={false}>
-      <primitive object={mesh} />
+    <group ref={groupRef} matrixAutoUpdate={false}>
+      <primitive object={resources.container} />
     </group>
   )
 }
