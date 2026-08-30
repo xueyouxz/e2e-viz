@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { useParams } from 'react-router-dom'
-import SceneViewer from '@/features/scene-viewer/SceneViewer'
+import { SceneViewer } from '@/features/scene-viewer'
 import { RouteLoading } from './RouteFallbacks'
 
 export default function SceneViewerRoute() {

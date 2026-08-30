@@ -42,19 +42,24 @@ Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → Sc
 
 ### Scene data pipeline
 
-Scene bundles are `.glb` files following the NUSVIZ protocol (see `docs/NUSVIZ.md`):
+Scene directories contain a NUSVIZ message index, metadata GLB, and frame files (see `docs/NUSVIZ.md`):
 
 1. **Frame decoder** (`data/FrameDecoder.ts` with `data/workers/frameDecoder.worker.ts`) — keeps Worker and main-thread fallback behavior aligned, resolves typed array accessors, and returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
 2. **Main thread** (`data/SceneRepository.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles fetch abort, cache ownership, and revocation on `destroy()` (ADR-0002).
 
 ### Rendering: Renderer + Registry
 
-Five `StreamType` values from the NUSVIZ protocol are rendered via the registry (`point`, `polyline`, `polygon`, `cuboid`, `image`). The `pose` type is handled separately by `EgoVehicle` in `components/`.
+Five `StreamType` values from the NUSVIZ protocol are rendered via the registry (`point`, `polyline`, `polygon`, `cuboid`, `image`). The `pose` type is handled separately by `EgoVehicle` in `scene/`.
 
-- **Renderer** (`renderers/*Renderer.tsx`) — the complete rendering pipeline for one `StreamType`. Reads `StreamPayload` directly from SceneStore (zero-subscription `useSceneStoreApi()` + `useFrame` for per-frame streams; `useMemo` for static geometry). Owns pre-allocated `DynamicDrawUsage` typed arrays mutated in-place; manages Three.js geometry, material, and disposal.
-- **Registry** (`registry/layerRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
+- **Renderer** (`renderers/*Renderer.tsx`) — the complete rendering pipeline for one `StreamType`. Reads `StreamPayload` through zero-subscription `useSceneStoreApi()` + `useFrame`. Owns instance-scoped scratch objects, growable `DynamicDrawUsage` buffers, Three.js resources, and disposal.
+- **Registry** (`layerRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
 
 Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Renderer + one registry entry.
+
+### Playback and camera overlay
+
+- **Playback** (`playback/PlaybackClock.ts`, `playback/PlaybackTimeline.tsx`) — `SceneEffects` owns the only R3F playback tick. The timeline is controlled by SceneStore and updates its cursor imperatively.
+- **Camera overlay** (`camera/`) — `CameraOverlayProjector` owns reusable projection scratch and image-space bounds. Six private `CameraViewport` instances update image and canvas DOM imperatively; drawing and picking share one `CameraViewportTransform`.
 
 ### Styling
 
@@ -64,7 +69,7 @@ A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `
 
 - `URL.createObjectURL()` must stay on the main thread — Workers have no DOM access.
 - `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneRepository.destroy()` handles this.
-- Do not add store access inside Renderers.
+- Do not add reactive `useSceneStore(selector)` subscriptions inside Renderers; read the raw store only from the imperative R3F update path.
 - Do not replace `SceneCtx` with a module-level import of SceneStore.
 - The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneRepository.materializeFrame`.
 

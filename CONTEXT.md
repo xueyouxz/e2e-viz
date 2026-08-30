@@ -13,7 +13,7 @@ A standalone browser-based visualization tool for autonomous driving evaluation 
 
 ### Scene
 
-A recorded driving clip. Has a name, description, and a sequence of **Frames**. Identified by a URL pointing to a `.glb` bundle.
+A recorded driving clip. Has a name, description, and a sequence of **Frames**. Its base URL contains `message_index.json`, `metadata.glb`, and frame files.
 
 ### Frame
 
@@ -33,7 +33,23 @@ The data for one Stream at one Frame. Typed per `StreamType` (e.g. `CuboidPayloa
 
 ### Renderer
 
-A React Three Fiber component that renders one Stream's `StreamPayload` directly in the 3D canvas. Reads the current payload from SceneStore (zero-subscription via `useSceneStoreApi()` + `useFrame`, or `useMemo` for static streams), manages pre-allocated Three.js geometry and material in-place (`DynamicDrawUsage` typed arrays), and owns the full rendering lifecycle. One Renderer per `StreamType`: `CuboidRenderer`, `PointRenderer`, `PathRenderer`, `PolygonRenderer`, `ImageRenderer`. All Renderers are registered in `layerRegistry`. The `pose` StreamType is intentionally omitted from the registry — its visual representation is `EgoVehicle`, which reads `state.egoPose` directly and lives in `components/`.
+A React Three Fiber component that renders one Stream's `StreamPayload` directly in the 3D canvas. It uses `useSceneStoreApi()` with `useFrame` instead of reactive Frame subscriptions, reuses instance-owned typed arrays and Three.js resources, and owns disposal. One Renderer exists per rendered `StreamType`: `CuboidRenderer`, `PointRenderer`, `PathRenderer`, `PolygonRenderer`, and `ImageRenderer`. `layerRegistry` maps protocol types to these Renderers. The `pose` type is handled separately by `scene/EgoVehicle.tsx`.
+
+### SceneSession
+
+The lifecycle owner for one loaded Scene. It coordinates `SceneRepository`, commits the latest requested Frame to SceneStore, starts prefetch, publishes the contiguous buffer range, and prevents stale requests from updating a replaced or destroyed Scene.
+
+### SceneRepository
+
+Owns scene metadata and Frame I/O: fetch cancellation, priority queueing, request deduplication, bounded cache, and Blob URL creation/revocation. It delegates binary decoding to `FrameDecoder`.
+
+### PlaybackClock
+
+The pure timestamp-based playback state machine. `SceneEffects` is its only R3F tick driver; `PlaybackTimeline` sends play, pause, speed, and seek commands without a second RAF.
+
+### CameraOverlayProjector
+
+An instance-owned camera projection pipeline used by `CameraPanel`. It reuses matrices, cuboid corners, projected points, and image-space bounds. Each private `CameraViewport` uses the same viewport transform for canvas drawing and object picking.
 
 ### SceneStore
 
@@ -75,7 +91,8 @@ Non-obvious design choices are recorded in `docs/adr/`. Key entries:
 
 - [ADR-0001](docs/adr/0001-per-instance-scene-store.md) — Why SceneStore is a factory (not a singleton)
 - [ADR-0002](docs/adr/0002-worker-parse-main-thread-materialize.md) — Why Worker parses but main thread materializes images
-- [ADR-0003](docs/adr/0003-layer-renderer-split.md) — Why Layer and Renderer are separate components
+- [ADR-0003](docs/adr/0003-layer-renderer-split.md) — Why each Renderer owns its complete store-to-GPU lifecycle
 - [ADR-0004](docs/adr/0004-glyph-selection-svg-filter.md) — Why Glyph selection uses SVG edge-detection filter instead of a border
 - [ADR-0005](docs/adr/0005-theme-react-context.md) — Theme state via React Context (superseded by ADR-0006)
 - [ADR-0006](docs/adr/0006-remove-theme-system.md) — Why the theme system was removed in favour of a single light palette
+- [ADR-0007](docs/adr/0007-scene-session-lifecycle-owner.md) — Why SceneSession is the single lifecycle owner for one loaded Scene

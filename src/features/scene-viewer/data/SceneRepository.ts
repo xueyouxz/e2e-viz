@@ -248,10 +248,6 @@ export class SceneRepository {
     return result
   }
 
-  get index(): MessageIndex | null {
-    return this.messageIndex
-  }
-
   async loadFrame(frameIndex: number): Promise<FrameCacheEntry> {
     this.assertActive()
     const cached = this.cache.get(frameIndex)

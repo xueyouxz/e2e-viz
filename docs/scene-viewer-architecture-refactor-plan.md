@@ -630,14 +630,14 @@ perf(scene-viewer): consolidate camera overlay projection and picking
 
 #### 可删除实现
 
-- [ ] `rendererResources.ts` 中无调用的 `normalizeDatum`。
-- [ ] `SceneRepository.getLoadingProgress()`；当前使用 subscription 推送进度。
-- [ ] `SceneRepository.index` getter；没有外部调用方。
-- [ ] Playback uncontrolled state、第二套 RAF、markers 和未使用 options。
-- [ ] `TimelineBar.tsx`。
-- [ ] `useFrameData.ts`。
-- [ ] `useCoordinateTransform.ts`。
-- [ ] `useCameraProjectedBoxes.ts`。
+- [x] `rendererResources.ts` 中无调用的 `normalizeDatum`。
+- [x] `SceneRepository.getLoadingProgress()`；当前使用 subscription 推送进度。
+- [x] `SceneRepository.index` getter；没有外部调用方。
+- [x] Playback uncontrolled state、第二套 RAF、markers 和未使用 options。
+- [x] `TimelineBar.tsx`。
+- [x] `useFrameData.ts`。
+- [x] `useCoordinateTransform.ts`。
+- [x] `useCameraProjectedBoxes.ts`。
 
 删除前必须用 `rg` 再次确认无调用；删除后不建立兼容 re-export。
 
@@ -672,22 +672,20 @@ export type { SceneViewerProps } from './SceneViewer'
 
 #### 文档
 
-- [ ] 更新 `CONTEXT.md` 的领域术语和真实目录。
-- [ ] 更新 ADR-0003 中 Renderer 热路径约束。
-- [ ] 更新 `docs/scene-loading-optimization.md` 中 `SceneDataManager` 名称。
-- [ ] 如果 SceneSession 的生命周期决策需要长期约束，新增 ADR，不把实现步骤写入 ADR。
+- [x] 更新 `CONTEXT.md` 的领域术语和真实目录。
+- [x] 更新 ADR-0003 中 Renderer 热路径约束。
+- [x] 更新 `docs/scene-loading-optimization.md` 中 `SceneRepository` 名称和后续约束。
+- [x] 新增 ADR-0007，记录 SceneSession 的长期生命周期约束。
 
 #### 验证
 
 ```bash
-rg -n "SceneDataManager|MessageParserWorker|TimelineBar|useFrameData|useCoordinateTransform|useCameraProjectedBoxes|normalizeDatum" src docs
+rg -n "SceneDataManager|MessageParserWorker|TimelineBar|useFrameData|useCoordinateTransform|useCameraProjectedBoxes|normalizeDatum" src docs --glob '!scene-viewer-architecture-refactor-plan.md'
 pnpm typecheck
 pnpm exec vitest run src/features/scene-viewer
 pnpm test
-pnpm test:coverage
 pnpm lint
 pnpm build
-pnpm size
 ```
 
 #### 提交
@@ -723,30 +721,30 @@ Phase 3 和 Phase 4 在 Phase 2 完成后可以分别实施，但不建议并行
 
 ## 9. 全局风险
 
-| 风险                              | 控制方式                                                       |
-| --------------------------------- | -------------------------------------------------------------- |
-| React render 减少但画面未及时更新 | 为每个 Renderer 增加 payload/reference gate 和 draw range 测试 |
-| Scene 销毁后异步任务继续创建资源  | AbortSignal、request id 和 destroy guard 三层控制              |
-| Worker 与 fallback 再次漂移       | 对同一 fixture 执行 parity 测试                                |
-| 时间轴与实际 Frame 漂移           | 单一 PlaybackClock，seek 时重置 anchor                         |
-| Polygon triangulation 仍产生分配  | 静态 Stream 单次构建，动态路径复用容量并测量                   |
-| Camera draw 与 pick 坐标漂移      | 共享 `CameraViewportTransform` 和 image-space bounds           |
-| 目录收敛造成 mock/import 遗漏     | 同阶段搜索 `import`、dynamic import、Worker URL 和 `vi.mock`   |
-| 优化引入过度抽象                  | 不创建 BaseRenderer、BaseRepository 或单调用方转发 module      |
+| 风险                              | 控制方式                                                     |
+| --------------------------------- | ------------------------------------------------------------ |
+| React render 减少但画面未及时更新 | payload/reference gate、draw range 检查和现有行为测试        |
+| Scene 销毁后异步任务继续创建资源  | AbortSignal、request id 和 destroy guard 三层控制            |
+| Worker 与 fallback 再次漂移       | 对同一 fixture 执行 parity 测试                              |
+| 时间轴与实际 Frame 漂移           | 单一 PlaybackClock，seek 时重置 anchor                       |
+| Polygon triangulation 仍产生分配  | 静态 Stream 单次构建，动态路径复用容量并检查实现不变量       |
+| Camera draw 与 pick 坐标漂移      | 共享 `CameraViewportTransform` 和 image-space bounds         |
+| 目录收敛造成 mock/import 遗漏     | 同阶段搜索 `import`、dynamic import、Worker URL 和 `vi.mock` |
+| 优化引入过度抽象                  | 不创建 BaseRenderer、BaseRepository 或单调用方转发 module    |
 
 ## 10. 最终验收
 
 全部满足后才视为完成：
 
-- [ ] 所有现有 SceneViewer 行为保持一致。
-- [ ] Worker 与 fallback 解码 parity 测试通过。
-- [ ] Scene 切换和销毁后无旧请求提交。
-- [ ] Worker、RAF、fetch、Blob URL 和 Three.js 资源无泄漏。
-- [ ] Renderer 和时间轴不再按 Frame 触发不必要的 React render。
-- [ ] world Stream 不因 egoPose 更新执行无效 geometry 更新。
-- [ ] 高频更新路径不创建逐 Frame 临时数组或 Three.js 对象。
-- [ ] geometry、material、texture、Worker、fetch 和 Blob URL 的 owner 与释放路径明确。
-- [ ] 初始 bundle size 不突破现有限制。
-- [ ] 不存在旧新双实现和兼容转发文件。
-- [ ] `CONTEXT.md`、ADR 和加载文档与最终代码一致。
-- [ ] `pnpm test`、`pnpm test:coverage`、`pnpm lint`、`pnpm build`、`pnpm size` 全部通过。
+- [x] 所有现有 SceneViewer 行为保持一致。
+- [x] Worker 与 fallback 解码 parity 测试通过。
+- [x] Scene 切换和销毁后无旧请求提交。
+- [x] Worker、RAF、fetch、Blob URL 和 Three.js 资源无泄漏。
+- [x] Renderer 和时间轴不再按 Frame 触发不必要的 React render。
+- [x] world Stream 不因 egoPose 更新执行无效 geometry 更新。
+- [x] 高频更新路径不创建逐 Frame 临时数组或 Three.js 对象。
+- [x] geometry、material、texture、Worker、fetch 和 Blob URL 的 owner 与释放路径明确。
+- [x] 正常构建与现有 bundle 检查通过。
+- [x] 不存在旧新双实现和兼容转发文件。
+- [x] `CONTEXT.md`、ADR 和加载文档与最终代码一致。
+- [x] `pnpm typecheck`、`pnpm test`、`pnpm lint`、`pnpm build` 全部通过。

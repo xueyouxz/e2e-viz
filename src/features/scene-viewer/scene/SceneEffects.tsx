@@ -7,8 +7,7 @@ import { advancePlaybackClock } from '../playback/PlaybackClock'
  * Zero-output R3F component that wires all scene-level infrastructure effects.
  *
  * Shader precompilation: triggers gl.compile() one RAF after mount so all
- * renderers have attached their Three.js objects, moving the 100ms+ first-draw
- * shader-link cost out of the interactive render path.
+ * renderers have attached their Three.js objects before compilation.
  *
  * Frame synchronization: drives frame-by-frame playback entirely inside the
  * R3F render loop. Reads all store state via getState() — zero React
