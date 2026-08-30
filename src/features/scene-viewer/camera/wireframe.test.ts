@@ -40,11 +40,12 @@ function makeBox(overrides: Partial<ProjectedBox3DWireframe> = {}): ProjectedBox
     strokeOpacity: 0.8,
     depth: 10,
     points: makeVisiblePoints(),
+    bounds: { minU: 100, maxU: 210, minV: 100, maxV: 210 },
     ...overrides
   }
 }
 
-describe('drawPseudo3DWireframes', () => {
+describe('camera wireframe drawing', () => {
   it('does nothing with empty boxes array', () => {
     const ctx = makeCtx()
     drawPseudo3DWireframes(ctx, [])

@@ -40,9 +40,16 @@ const BOX_FACE_EDGE_INDICES: FaceEdgeIndices[] = [
 
 const HIDDEN_EDGE_DASH = [6, 4]
 const DEFAULT_CULL_MARGIN_PX = 24
-const _scaledHiddenEdgeDash = [0, 0]
 
-interface WireframeDrawOptions {
+export interface WireframeDrawScratch {
+  scaledHiddenEdgeDash: number[]
+}
+
+export function createWireframeDrawScratch(): WireframeDrawScratch {
+  return { scaledHiddenEdgeDash: [0, 0] }
+}
+
+export interface WireframeDrawOptions {
   near?: number
   far?: number
   clipMinU?: number
@@ -154,7 +161,8 @@ function drawSingleBox(
   clipMaxV?: number,
   cullMargin = DEFAULT_CULL_MARGIN_PX,
   displayScale = 1,
-  isSelected = false
+  isSelected = false,
+  scratch: WireframeDrawScratch = createWireframeDrawScratch()
 ): void {
   if (
     clipMinU !== undefined &&
@@ -203,9 +211,9 @@ function drawSingleBox(
     strokeEdgeGroup(ctx, box.points, mask, true)
 
     ctx.strokeStyle = hiddenStroke
-    _scaledHiddenEdgeDash[0] = HIDDEN_EDGE_DASH[0] / displayScale
-    _scaledHiddenEdgeDash[1] = HIDDEN_EDGE_DASH[1] / displayScale
-    ctx.setLineDash(_scaledHiddenEdgeDash)
+    scratch.scaledHiddenEdgeDash[0] = HIDDEN_EDGE_DASH[0] / displayScale
+    scratch.scaledHiddenEdgeDash[1] = HIDDEN_EDGE_DASH[1] / displayScale
+    ctx.setLineDash(scratch.scaledHiddenEdgeDash)
     strokeEdgeGroup(ctx, box.points, mask, false)
     ctx.setLineDash([])
   }
@@ -216,7 +224,8 @@ function drawSingleBox(
 export function drawPseudo3DWireframes(
   ctx: CanvasRenderingContext2D,
   boxes: ProjectedBox3DWireframe[],
-  options: WireframeDrawOptions = {}
+  options: WireframeDrawOptions = {},
+  scratch: WireframeDrawScratch = createWireframeDrawScratch()
 ): void {
   const near = options.near ?? 1
   const far = options.far ?? 80
@@ -238,7 +247,8 @@ export function drawPseudo3DWireframes(
       options.clipMaxV,
       cullMargin,
       displayScale,
-      false
+      false,
+      scratch
     )
   }
   for (const box of boxes) {
@@ -254,7 +264,8 @@ export function drawPseudo3DWireframes(
       options.clipMaxV,
       cullMargin,
       displayScale,
-      true
+      true,
+      scratch
     )
   }
 }

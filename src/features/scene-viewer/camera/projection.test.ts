@@ -23,7 +23,7 @@ const IDENTITY_CAM_INFO = {
   }
 }
 
-describe('buildWorldToCameraMatrix', () => {
+describe('camera projection', () => {
   it('returns a Matrix4', () => {
     const result = buildWorldToCameraMatrix(IDENTITY_POSE, IDENTITY_CAM_INFO)
     expect(result).toBeInstanceOf(THREE.Matrix4)

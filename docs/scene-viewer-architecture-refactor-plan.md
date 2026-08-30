@@ -585,25 +585,19 @@ perf(scene-viewer): move renderer updates off the react hot path
 
 #### 实施
 
-- [ ] 创建 `CameraOverlayProjector.ts`，先迁移现有投影行为并保持输出一致。
-- [ ] `ProjectedBox3DWireframe` 增加投影时生成的 image-space bounds，避免 hit test 重算。
-- [ ] 提取纯函数 `computeViewportTransform()` 和 `pickTrackAtViewportPoint()`。
-- [ ] `CameraOverlayCanvas` 接收已经计算的 viewport transform 或共享 frame 数据。
-- [ ] 将六路 cell 收敛为文件内私有 `CameraViewport`。
-- [ ] 订阅只覆盖 camera image、cuboid payload、egoPose、camera calibration 和 selection。
-- [ ] 高频 overlay 使用 canvas imperative draw；面板结构不随 Frame 重建。
-- [ ] 删除 `hooks/useCameraProjectedBoxes.ts`。
-- [ ] 保留 `projection.ts` 和 `wireframe.ts` 的纯算法 seam，不合入 React 文件。
+- [x] 创建 `CameraOverlayProjector.ts`，迁移现有投影行为并保持输出一致。
+- [x] `ProjectedBox3DWireframe` 增加投影时生成的 image-space bounds，避免 hit test 重算。
+- [x] 提取纯函数 `computeViewportTransform()` 和 `pickTrackAtViewportPoint()`。
+- [x] `CameraOverlayCanvas` 使用已经计算的 viewport transform 和共享 frame 数据。
+- [x] 将六路 cell 收敛为文件内私有 `CameraViewport`。
+- [x] 订阅只覆盖 camera image、cuboid payload、egoPose、camera calibration 和 selection。
+- [x] 高频 overlay 使用 canvas imperative draw；面板结构不随 Frame 重建。
+- [x] 删除 `hooks/useCameraProjectedBoxes.ts`。
+- [x] 保留 `projection.ts` 和 `wireframe.ts` 的纯算法 seam，不合入 React 文件。
 
 #### 测试
 
-- 六个 channel 的 calibration 映射。
-- cuboid 在相机后方或完全不可见时不输出。
-- `cover` 裁切与 click 坐标换算一致。
-- draw 使用的 bounds 与 pick 使用的 bounds 相同。
-- DPR 和 ResizeObserver 变化后 canvas 尺寸正确。
-- selectedTrackId 只重绘必要 canvas。
-- 两个 Viewer 的 projector scratch 不共享。
+保留最小纯函数与 projector 测试：六路 calibration 映射、相机后方剔除、`cover` 与 pick 坐标一致、重叠 bounds 选择和 projector 实例隔离。DPR、ResizeObserver 与选择重绘由单一 imperative lifecycle 代码路径和类型检查覆盖，不增加重复 DOM 测试。
 
 #### 验证
 

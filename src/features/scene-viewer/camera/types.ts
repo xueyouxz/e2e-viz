@@ -4,6 +4,13 @@ export interface ProjectedPoint2D {
   depth: number
 }
 
+export interface ImageSpaceBounds {
+  minU: number
+  maxU: number
+  minV: number
+  maxV: number
+}
+
 export interface ProjectedBox3DWireframe {
   trackId: number
   classId: number
@@ -11,6 +18,7 @@ export interface ProjectedBox3DWireframe {
   strokeOpacity: number
   depth: number
   points: Array<ProjectedPoint2D | null>
+  bounds: ImageSpaceBounds
 }
 
 // NUSVIZ protocol-defined camera channel identifiers.
@@ -25,6 +33,19 @@ export const CAMERA_CHANNELS = [
 
 export type CameraChannel = (typeof CAMERA_CHANNELS)[number]
 
-export type ChannelProjectedBoxes = Record<string, ProjectedBox3DWireframe[]>
+export interface CameraOverlayFrame {
+  version: number
+  projectedCuboids: Record<CameraChannel, ProjectedBox3DWireframe[]>
+}
 
 export type OverlayFitMode = 'cover' | 'contain'
+
+export interface CameraViewportTransform {
+  scale: number
+  offsetX: number
+  offsetY: number
+  viewportWidth: number
+  viewportHeight: number
+  sourceWidth: number
+  sourceHeight: number
+}
