@@ -27,7 +27,7 @@
     "size": "node scripts/check_bundle.mjs",
     "build:glyph-atlas": "node scripts/build_glyph_atlas.mjs",
     "validate:glyph-atlas": "node scripts/build_glyph_atlas.mjs --validate",
-    "render:glyphs": "node scripts/render_glyphs.mjs && pnpm build:glyph-atlas",
+    "render:glyphs": "node scripts/render_glyphs.mjs --force && pnpm build:glyph-atlas",
     "sync:data": "node scripts/sync-data.mjs",
     "prepare": "husky",
     "format:check": "prettier --check .",

@@ -15,6 +15,7 @@
 
 import { readFile, mkdir, stat } from 'fs/promises'
 import path from 'path'
+import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -29,11 +30,15 @@ const GLYPH_PHYSICAL = GLYPH_LOGICAL * GLYPH_DPR // 264px on disk
 const MAP_PADDING = 3
 const DEFAULT_CONCURRENCY = 40
 
-// Offline glyph palette
-const C_DRIVABLE_FILL = 'rgba(116,132,151,.16)'
-const C_PED_FILL = 'rgba(232,151,45,.56)'
-const C_PED_STROKE = 'rgba(169,94,20,.38)'
-const C_DIVIDER_STROKE = 'rgba(39,122,172,.58)'
+// Production glyph palette: slate-blue dividers, amber crossings and a light keyline.
+const GLYPH_STYLE = {
+  drivableFill: 'rgba(71,85,105,.28)',
+  pedFill: 'rgba(217,144,56,.78)',
+  pedStroke: 'rgba(147,83,24,.72)',
+  dividerStroke: 'rgba(53,93,120,.92)',
+  dividerWidth: 0.6,
+  keyline: { color: 'rgba(255,255,255,.82)', width: 0.4 }
+}
 
 // ── Offline map geometry ────────────────────────
 
@@ -91,7 +96,8 @@ function lineToPathData(line, s) {
  * Build an SVG string for a single scene glyph at GLYPH_LOGICAL size.
  * Returns null when the scene has no renderable geometry.
  */
-function buildGlyphSVG(scene) {
+export function buildGlyphSVG(scene) {
+  const { drivableFill, pedFill, pedStroke, dividerStroke, dividerWidth, keyline } = GLYPH_STYLE
   const pts = collectPoints(scene)
   if (pts.length === 0) return null
 
@@ -103,26 +109,41 @@ function buildGlyphSVG(scene) {
   const { drivable_area, ped_crossing, divider } = scene.layers
 
   const paths = []
+  const underlay = []
 
   for (const poly of drivable_area) {
     const d = polygonToPathData(poly, s)
-    if (d) paths.push(`<path d="${d}" fill="${C_DRIVABLE_FILL}"/>`)
+    if (d) {
+      underlay.push(
+        `<path d="${d}" fill="none" stroke="${keyline.color}" ` +
+          `stroke-width="${keyline.width}" stroke-linejoin="round"/>`
+      )
+      paths.push(`<path d="${d}" fill="${drivableFill}"/>`)
+    }
   }
   for (const poly of ped_crossing) {
     const d = polygonToPathData(poly, s)
-    if (d)
-      paths.push(
-        `<path d="${d}" fill="${C_PED_FILL}" stroke="${C_PED_STROKE}" stroke-width=".25"/>`
-      )
+    if (d) paths.push(`<path d="${d}" fill="${pedFill}" stroke="${pedStroke}" stroke-width=".25"/>`)
   }
+  const dividerUnderlay = []
+  const dividerPaths = []
   for (const line of divider) {
     const d = lineToPathData(line, s)
-    if (d)
-      paths.push(
-        `<path d="${d}" fill="none" stroke="${C_DIVIDER_STROKE}" ` +
-          `stroke-width=".45" stroke-linecap="round" stroke-linejoin="round"/>`
+    if (d) {
+      dividerUnderlay.push(
+        `<path d="${d}" fill="none" stroke="${keyline.color}" ` +
+          `stroke-width="${dividerWidth + keyline.width * 2}" ` +
+          `stroke-linecap="round" stroke-linejoin="round"/>`
       )
+      dividerPaths.push(
+        `<path d="${d}" fill="none" stroke="${dividerStroke}" ` +
+          `stroke-width="${dividerWidth}" stroke-linecap="round" stroke-linejoin="round"/>`
+      )
+    }
   }
+
+  // Paint every separator above every keyline to preserve close parallel lines and junctions.
+  paths.push(...dividerUnderlay, ...dividerPaths)
 
   if (paths.length === 0) return null
 
@@ -132,6 +153,7 @@ function buildGlyphSVG(scene) {
     `width="${GLYPH_LOGICAL}" height="${GLYPH_LOGICAL}" ` +
     `viewBox="0 0 ${GLYPH_LOGICAL} ${GLYPH_LOGICAL}">` +
     `<g transform="rotate(180 ${half} ${half})">` +
+    underlay.join('') +
     paths.join('') +
     `</g></svg>`
   )
@@ -156,7 +178,7 @@ async function renderScene(sceneName, scene, force) {
   const svg = buildGlyphSVG(scene)
   if (!svg) return 'empty'
 
-  await sharp(Buffer.from(svg))
+  await sharp(Buffer.from(svg), { density: 72 * GLYPH_DPR })
     .resize(GLYPH_PHYSICAL, GLYPH_PHYSICAL, { fit: 'fill' })
     .webp({ quality: 90, effort: 4 })
     .toFile(outPath)
@@ -232,7 +254,9 @@ async function main() {
   console.log(`time     : ${elapsed}s`)
 }
 
-main().catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch(err => {
+    console.error(err)
+    process.exitCode = 1
+  })
+}

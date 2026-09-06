@@ -1,0 +1,12 @@
+Generated with built-in imagegen.
+
+Use case: logo-brand.
+Create one minimal website icon for an autonomous driving perception, prediction and planning analysis tool called Scene Atlas.
+Concept: an autonomous agent sensing its surroundings and making decisions, expressed entirely with abstract geometry. Do NOT depict a road, a vehicle, a camera, a steering wheel, an eye, a map, a driving scene, or any perspective.
+Design exactly three geometric components on a royal blue #2563EB rounded square tile:
+1. A solid white circular core precisely centered, diameter 17% of tile width.
+2. A single thick white circular sensing arc centered on the same point, with diameter 57% of tile width and stroke thickness 9% of tile width. The arc is almost a full ring with one clean 65-degree opening toward the upper right. Both arc ends are round.
+3. One solid cyan #67E8F9 circular node centered within that opening, positioned on the invisible continuation of the ring. Node diameter 13% of tile width. Keep visible blue separation between the cyan node and both white ring ends.
+The center dot and surrounding arc must be concentric, forming a compact, balanced symbol. The cyan node represents a selected prediction or decision among sensed possibilities. No lines connecting core to ring, no extra dots, no second ring.
+Style: precise flat geometric logo, exceptionally simple, broad negative space, highly readable at favicon size. Flat uniform fills, no gradients, shadows, texture, noise or glow. Clean crisp antialiasing. All elements are bold, smooth, consistent. No text or typography, no wordmark, no mockup, no multiple versions.
+Canvas: square. Blue rounded square almost fills canvas with 4% white exterior margin; corner radius 19% of tile width. White background outside tile, fully opaque. Single centered finished icon.

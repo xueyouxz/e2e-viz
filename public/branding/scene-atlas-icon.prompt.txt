@@ -1,0 +1,13 @@
+Generated with built-in imagegen.
+
+Use case: logo-brand.
+Asset type: one finished square website icon for Scene Atlas, a browser tool for autonomous driving scene exploration, 2D scene projection maps, 3D perception and trajectory inspection.
+Primary request: a minimal, distinctive favicon with an extremely clear silhouette at 16 and 32 pixels.
+Design: one centered bold white abstract road mark inside a solid royal-blue #2563EB rounded square. The road consists of ONLY two thick smooth white strokes, slightly converging toward the top, forming an open A-like silhouette without a crossbar. A single small solid light-cyan circular scene node floats centered just above the converging tips, separated by a clear blue gap. The road should gently suggest a planned driving trajectory, with a subtle bend to the right near the top, but remain balanced and instantly readable. No dashed center line. Exactly two white strokes and one cyan dot. Broad blue negative space. Outer rounded square occupies almost the full canvas with only a very small transparent margin.
+Style: flat vector-like precision, strong geometric forms, softly rounded stroke ends, clean deliberate proportions, no texture.
+Composition: single icon only, centered, symbol fills around 65 percent of the tile width and 72 percent of height; generous optical balance, 1024x1024.
+Colors: #2563EB tile, pure white road, #67E8F9 node. Actual transparent background outside rounded tile.
+Constraints: no text, no letters rendered as typography, no labels, no mockup, no presentation board, no extra variants, no gradients, no shadows, no glow, no outlines around the tile, no perspective or 3D effects, no cars, no tiny data dots or decorative elements.
+
+Final edit prompt:
+Clean up this favicon into a precise flat logo. Preserve the existing road silhouette and single cyan node, their placement and proportions. Replace ALL the tile background with ONE absolutely uniform solid blue #2563EB. Remove all texture, ALL dark patches, ALL gradients, shadows, transparency artifacts, speckles and stray pixels. The two road shapes must be completely solid pure white. Node must be solid #67E8F9. Outer area beyond the clean rounded blue tile is solid white, NOT transparent. Render as a sharp vector-style flat icon on a white 1024x1024 canvas. No other changes, no text, no extra elements. The result must have exactly four flat colors: white, blue, cyan, with only clean edge anti-aliasing.

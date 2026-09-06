@@ -275,7 +275,7 @@ export function ProjectionMapView({
   const densityColor = useMemo(() => {
     if (!densityContours.length) return (_: number) => 'transparent'
     return d3
-      .scaleSequential(d3.interpolateRgb('#f0f2f7', '#2f67bb'))
+      .scaleSequential(d3.interpolateRgb('#f3f5f8', '#6f94c9'))
       .domain([0, densityContours[densityContours.length - 1].value])
   }, [densityContours])
 
@@ -536,7 +536,7 @@ export function ProjectionMapView({
          * 无需对每个子元素单独计算 screen 坐标。
          */}
         <g ref={scatterGroupRef} className={cls.zoomLayer}>
-          <g opacity={0.8} pointerEvents='none' role='group' aria-label='All scenes density'>
+          <g opacity={0.62} pointerEvents='none' role='group' aria-label='All scenes density'>
             {densityContours.map((contour, i) => (
               <path
                 key={i}
