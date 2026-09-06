@@ -1,15 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
+import { ChevronRight, Eye, EyeOff, Folder } from 'lucide-react'
 import { useSceneStore } from '../context'
 import type { StreamMeta } from '../types'
 
 const cls = {
-  panel:
-    'absolute top-0 right-0 z-10 flex h-full w-[220px] flex-col overflow-hidden border-l border-app-border bg-app-panel-bg-solid',
-  header: 'flex shrink-0 items-center justify-between border-b border-app-border px-3 py-2.5',
-  title: 'text-[11px] font-semibold tracking-[0.08em] text-app-text-label uppercase',
-  count: 'ml-1 text-[10px] font-normal text-app-text-faint',
-  closeBtn:
-    'flex cursor-pointer items-center border-0 bg-transparent px-0.5 text-[18px] leading-none text-app-text-dim hover:text-app-text-strong',
+  panel: 'flex h-full min-h-0 flex-col overflow-hidden',
   tree: 'flex-1 overflow-x-hidden overflow-y-auto py-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-app-scrollbar [&::-webkit-scrollbar-track]:bg-transparent',
   folderRow:
     'flex min-h-[26px] cursor-pointer items-center gap-[5px] px-2 text-[12px] text-app-text-dim select-none hover:bg-app-row-hover hover:text-app-text-primary',
@@ -148,81 +143,6 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      width='10'
-      height='10'
-      viewBox='0 0 10 10'
-      style={{
-        transform: expanded ? 'rotate(90deg)' : 'none',
-        transition: 'transform 0.15s ease',
-        flexShrink: 0
-      }}
-    >
-      <polyline
-        points='3,2 7,5 3,8'
-        stroke='currentColor'
-        strokeWidth='1.5'
-        fill='none'
-        strokeLinecap='round'
-      />
-    </svg>
-  )
-}
-
-function EyeIcon({ on }: { on: boolean }) {
-  return on ? (
-    <svg width='14' height='14' viewBox='0 0 14 14'>
-      <ellipse
-        cx='7'
-        cy='7'
-        rx='5.5'
-        ry='3.5'
-        stroke='currentColor'
-        strokeWidth='1.3'
-        fill='none'
-      />
-      <circle cx='7' cy='7' r='2' fill='currentColor' />
-    </svg>
-  ) : (
-    <svg width='14' height='14' viewBox='0 0 14 14'>
-      <ellipse
-        cx='7'
-        cy='7'
-        rx='5.5'
-        ry='3.5'
-        stroke='currentColor'
-        strokeWidth='1.3'
-        fill='none'
-      />
-      <circle cx='7' cy='7' r='2' fill='currentColor' opacity='0.2' />
-      <line
-        x1='2.5'
-        y1='2.5'
-        x2='11.5'
-        y2='11.5'
-        stroke='currentColor'
-        strokeWidth='1.3'
-        strokeLinecap='round'
-      />
-    </svg>
-  )
-}
-
-function FolderIcon() {
-  return (
-    <svg width='12' height='12' viewBox='0 0 12 12'>
-      <path
-        d='M1,3.5 L1,10 L11,10 L11,5 L5.5,5 L4.5,3.5 Z'
-        stroke='currentColor'
-        strokeWidth='1.2'
-        fill='none'
-      />
-    </svg>
-  )
-}
-
 // ── Tree rows ─────────────────────────────────────────────────────────────────
 
 interface StreamRowProps {
@@ -248,7 +168,11 @@ function StreamRow({ leaf, depth, visible, toggleable, onToggle }: StreamRowProp
           onClick={() => onToggle(leaf.path)}
           title={visible ? 'Hide layer' : 'Show layer'}
         >
-          <EyeIcon on={visible} />
+          {visible ? (
+            <Eye size={14} strokeWidth={1.8} aria-hidden='true' />
+          ) : (
+            <EyeOff size={14} strokeWidth={1.8} aria-hidden='true' />
+          )}
         </button>
       )}
     </div>
@@ -269,8 +193,13 @@ function FolderRow({ folder, depth, expanded, onToggle }: FolderRowProps) {
       style={{ paddingLeft: 8 + depth * 14 }}
       onClick={() => onToggle(folder.path)}
     >
-      <ChevronIcon expanded={expanded} />
-      <FolderIcon />
+      <ChevronRight
+        size={10}
+        strokeWidth={2}
+        aria-hidden='true'
+        className={`shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+      />
+      <Folder size={12} strokeWidth={1.8} aria-hidden='true' />
       <span className={cls.folderName}>{folder.name}</span>
     </div>
   )
@@ -328,11 +257,7 @@ function NodeView({
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
-interface StreamPanelProps {
-  onClose: () => void
-}
-
-export function StreamPanel({ onClose }: StreamPanelProps) {
+export function StreamPanel() {
   const streamsMeta = useSceneStore(s => s.streamsMeta)
   const visibleStreams = useSceneStore(s => s.visibleStreams)
   const toggleStream = useSceneStore(s => s.toggleStream)
@@ -340,7 +265,6 @@ export function StreamPanel({ onClose }: StreamPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(['/camera']))
 
   const tree = useMemo(() => buildTree(streamsMeta), [streamsMeta])
-  const streamCount = Object.keys(streamsMeta).length
 
   const handleToggleFolder = useCallback((path: string) => {
     setCollapsed(prev => {
@@ -353,15 +277,6 @@ export function StreamPanel({ onClose }: StreamPanelProps) {
 
   return (
     <div className={cls.panel}>
-      <div className={cls.header}>
-        <span className={cls.title}>
-          Streams
-          <span className={cls.count}>({streamCount})</span>
-        </span>
-        <button className={cls.closeBtn} onClick={onClose} title='Collapse panel'>
-          ×
-        </button>
-      </div>
       <div className={cls.tree}>
         {tree.map(node => (
           <NodeView

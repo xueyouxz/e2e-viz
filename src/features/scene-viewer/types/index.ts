@@ -76,7 +76,7 @@ export type StreamPayload =
   | CuboidPayload
   | ImagePayload
 
-// ─── Raw decoded frame from Worker (before main-thread materialisation) ────────
+// ─── Parsed frame from Worker (before main-thread materialisation) ────────────
 
 // path type is now disambiguated in the worker — 'polyline' or 'polygon' directly
 export type RawStreamPayload =
@@ -102,7 +102,7 @@ export type RawStreamPayload =
       bounds?: ImageBounds
     }
 
-export interface RawDecodedFrame {
+export interface ParsedFrame {
   updateType: 'COMPLETE_STATE' | 'INCREMENTAL'
   timestamp: number
   egoPose: EgoPose | null
@@ -112,7 +112,7 @@ export interface RawDecodedFrame {
 // ─── Style ───────────────────────────────────────────────────────────────────
 
 /** Context passed to styleFn on every frame. */
-export interface FrameStyleContext {
+interface FrameStyleContext {
   frameIndex: number
   metrics: Record<string, Float32Array> | null
 }
@@ -128,16 +128,16 @@ export interface StyleConfig {
   styleFn?: (ctx: FrameStyleContext) => Partial<Omit<StyleConfig, 'styleFn'>>
 }
 
-// ─── Renderer interface ───────────────────────────────────────────────────────
+// ─── Layer interface ──────────────────────────────────────────────────────────
 
-export interface StreamRendererProps {
+export interface StreamLayerProps {
   streamName: string
   style: StyleConfig
 }
 
 // ─── Metadata ────────────────────────────────────────────────────────────────
 
-export interface MessageEntry {
+interface MessageEntry {
   index: number
   timestamp: number
   file: string

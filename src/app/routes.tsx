@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, createBrowserRouter } from 'react-router-dom'
+import { Loading } from '@/features/scene-viewer/Loading'
 import { RouteErrorBoundary, RouteLoading, RouteNotFound } from './RouteFallbacks'
 
 const ProjectionMapPage = lazy(() => import('@/features/projection-map'))
@@ -24,7 +25,13 @@ export const router = createBrowserRouter([
       {
         path: '/scenes/:sceneName',
         element: (
-          <Suspense fallback={<RouteLoading />}>
+          <Suspense
+            fallback={
+              <div className='relative min-h-[100dvh] bg-app-surface-raised'>
+                <Loading />
+              </div>
+            }
+          >
             <SceneViewerRoute />
           </Suspense>
         )

@@ -12,36 +12,38 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build_glyph_atlas.mjs --ensure-if-present && tsc -b && vite build && node scripts/check_initial_bundle.mjs",
+    "build": "node scripts/build_glyph_atlas.mjs --ensure-if-present && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:style": "stylelint \"src/**/*.{css,less,scss}\"",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css,json,md}\"",
+    "format": "prettier --write .",
     "test": "vitest run && pnpm test:server && pnpm test:scripts",
     "test:server": "pnpm --dir server test",
     "test:scripts": "node --test scripts/*.test.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "size": "size-limit",
-    "check:initial-bundle": "node scripts/check_initial_bundle.mjs",
+    "typecheck": "tsc -b",
+    "size": "node scripts/check_bundle.mjs",
     "build:glyph-atlas": "node scripts/build_glyph_atlas.mjs",
     "validate:glyph-atlas": "node scripts/build_glyph_atlas.mjs --validate",
     "render:glyphs": "node scripts/render_glyphs.mjs && pnpm build:glyph-atlas",
     "sync:data": "node scripts/sync-data.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "format:check": "prettier --check .",
+    "check": "pnpm lint && pnpm lint:style && pnpm format:check && pnpm typecheck && pnpm test:coverage && pnpm test:server && pnpm test:scripts && pnpm build && pnpm size",
+    "check:unused": "knip"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
+    "*.{js,jsx,ts,tsx,mjs,cjs}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "src/**/*.css": [
+    "*.css": [
       "stylelint --fix",
       "prettier --write"
     ],
-    "*.{json,md}": [
+    "*.{json,md,yml,yaml,html}": [
       "prettier --write"
     ]
   },
@@ -60,10 +62,8 @@
   "devDependencies": {
     "@clack/prompts": "^1.4.0",
     "@eslint/js": "^9.18.0",
-    "@size-limit/file": "^12.1.0",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/d3": "^7.4.3",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
@@ -77,10 +77,10 @@
     "globals": "^15.14.0",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "knip": "^6.34.0",
     "lint-staged": "^17.0.4",
     "prettier": "^3.4.2",
     "sharp": "^0.34.5",
-    "size-limit": "^12.1.0",
     "stylelint": "^16.12.0",
     "stylelint-config-recess-order": "^5.1.1",
     "stylelint-config-standard": "^37.0.0",

@@ -7,7 +7,18 @@ import globals from 'globals'
 
 export default defineConfig(
   {
-    ignores: ['dist/', 'node_modules/', '**/*.d.ts']
+    ignores: [
+      'dist/',
+      'dist-ssr/',
+      'node_modules/',
+      'public/',
+      'coverage/',
+      'output/',
+      '.playwright-cli/',
+      'playwright-report/',
+      'test-results/',
+      '**/*.d.ts'
+    ]
   },
   js.configs.recommended,
   {
@@ -51,10 +62,13 @@ export default defineConfig(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-non-null-assertion': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/consistent-type-imports': ['error', {
-        prefer: 'type-imports',
-        fixStyle: 'inline-type-imports'
-      }],
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        {
+          prefer: 'type-imports',
+          fixStyle: 'inline-type-imports'
+        }
+      ],
       'no-console': ['warn', { allow: ['warn', 'error'] }]
     }
   }

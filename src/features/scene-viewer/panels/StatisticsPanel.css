@@ -1,0 +1,155 @@
+.scene-statistics {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 12px;
+  overflow: hidden auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  color: var(--color-app-text-primary);
+  scrollbar-width: none;
+}
+
+.scene-statistics-section {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-app-border);
+}
+
+.scene-statistics-section:last-child {
+  border-bottom: 0;
+}
+
+.scene-statistics h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-app-text-strong);
+}
+
+.scene-statistics-heading,
+.scene-statistics-label {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.scene-statistics-heading {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.scene-statistics-heading h3 {
+  margin: 0;
+}
+
+.scene-statistics-label {
+  margin-top: 4px;
+}
+
+.scene-statistics-value {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-app-text-strong);
+  white-space: nowrap;
+}
+
+.scene-statistics-unit,
+.scene-statistics-ramp,
+.scene-statistics-legend {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-app-text-primary);
+}
+
+.scene-statistics-unit {
+  margin-left: 3px;
+}
+
+.scene-statistics-ramp {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.scene-statistics-ramp i {
+  width: 10px;
+  height: 7px;
+}
+
+.scene-statistics-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  cursor: crosshair;
+}
+
+.scene-statistics-plot:focus {
+  outline: none;
+}
+
+.scene-statistics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 9px;
+  margin: 3px 0;
+}
+
+.scene-statistics-legend span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.scene-statistics-legend i {
+  width: 6px;
+  height: 6px;
+}
+
+.scene-statistics-empty {
+  margin: 8px 0;
+  font-size: 11px;
+  color: var(--color-app-text-primary);
+}
+
+.scene-statistics-section[aria-label='Metric'] {
+  flex-grow: 3;
+}
+
+.scene-statistics-section[aria-label='Ego state'] {
+  flex-grow: 2;
+}
+
+.scene-statistics-chart {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+.scene-statistics-chart > .scene-statistics-plot {
+  flex: 1 0 var(--plot-min-height, 48px);
+  height: 0;
+  min-height: var(--plot-min-height, 48px);
+}
+
+.scene-statistics-chart--collision {
+  --plot-min-height: 81px;
+}
+
+.scene-statistics-chart--speed {
+  --plot-min-height: 74px;
+}
+
+.scene-statistics-chart--acceleration {
+  --plot-min-height: 86px;
+}
+
+.scene-statistics-chart--objects {
+  --plot-min-height: 111px;
+}

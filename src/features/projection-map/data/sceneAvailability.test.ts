@@ -25,12 +25,17 @@ describe('SceneAvailabilityProbe', () => {
     }
   })
 
-  it('does not request detail data for a train scene', async () => {
-    const fetchScene = vi.fn()
+  it('checks train scenes against the current environment instead of excluding the split', async () => {
+    const fetchScene = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { headers: { 'content-type': 'application/json' } }))
     const probe = new SceneAvailabilityProbe(fetchScene)
 
-    await expect(probe.check(scene('scene-0369', 'train'))).resolves.toBe('missing')
-    expect(fetchScene).not.toHaveBeenCalled()
+    await expect(probe.check(scene('scene-0369', 'train'))).resolves.toBe('available')
+    expect(fetchScene).toHaveBeenCalledWith(
+      '/data/scenes/scene-0369/message_index.json',
+      expect.objectContaining({ method: 'HEAD' })
+    )
   })
 
   it('caches a confirmed missing val scene', async () => {
@@ -57,4 +62,29 @@ describe('SceneAvailabilityProbe', () => {
     await expect(probe.check(target)).resolves.toBe('available')
     expect(fetchScene).toHaveBeenCalledTimes(2)
   })
+})
+
+it('deduplicates in-flight checks and caches their result', async () => {
+  const fetchScene = vi
+    .fn()
+    .mockResolvedValue(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+  const probe = new SceneAvailabilityProbe(fetchScene)
+  const target = scene('scene-0017', 'val')
+  expect(await Promise.all([probe.check(target), probe.check(target)])).toEqual([
+    'available',
+    'available'
+  ])
+  await probe.check(target)
+  expect(fetchScene).toHaveBeenCalledTimes(1)
+})
+
+it('does not permanently cache an unexpected HTML response', async () => {
+  const fetchScene = vi
+    .fn()
+    .mockResolvedValueOnce(new Response('<html />', { headers: { 'content-type': 'text/html' } }))
+    .mockResolvedValueOnce(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+  const probe = new SceneAvailabilityProbe(fetchScene)
+  const target = scene('scene-0017', 'val')
+  expect(await probe.check(target)).toBe('temporary-error')
+  expect(await probe.check(target)).toBe('available')
 })

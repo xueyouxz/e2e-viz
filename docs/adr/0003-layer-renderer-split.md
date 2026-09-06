@@ -1,30 +1,34 @@
-# ADR-0003: Renderer owns the complete stream rendering lifecycle
+# ADR-0003: Concrete Layers own stream rendering
 
 **Status:** Accepted
 
 ## Context
 
-The NUSVIZ protocol defines distinct typed-array payloads for `point`, `polyline`, `polygon`, `cuboid`, and `image` streams. An earlier Layer/Renderer split converted those arrays into intermediate JavaScript objects before rebuilding Three.js inputs. It added per-Frame allocation and separated GPU resource ownership from store updates without creating a useful reuse boundary.
+The SceneViewer renders point, polyline, polygon, cuboid, and image Streams through React Three Fiber. Each type has different data, Three.js objects, update rules, interactions, and disposal requirements.
 
-The `pose` stream is not geometry data and is handled by `scene/EgoVehicle.tsx`.
+Splitting each type between `renderers/` and `layers/` duplicated module boundaries without creating an independent consumer for the lower-level objects.
 
 ## Decision
 
-Each file in `renderers/` owns the complete store-to-GPU lifecycle for one rendered `StreamType`:
+Each concrete component in `layers/` owns the complete rendering lifecycle for one Stream type:
 
-- Read Frame data with `useSceneStoreApi().getState()` from `useFrame`; do not use reactive `useSceneStore(selector)` subscriptions.
-- Keep scratch vectors, matrices, growable typed arrays, geometry, materials, textures, and async request tokens inside the Renderer instance.
-- Use payload and style reference gates so unchanged Frames do not rewrite GPU attributes.
-- Grow capacity only when required and dispose every owned Three.js resource on replacement or unmount.
-- Write protocol typed arrays directly into reusable buffers without intermediate object collections.
+- Read the current Stream data imperatively from SceneStore in `useFrame`.
+- Resolve visibility, style, and world/ego coordinate transforms.
+- Own reusable typed arrays, Three.js objects, scratch values, update gates, and disposal.
+- Keep Frame updates outside React reconciliation.
+- Handle type-specific requirements such as polygon resolution, cuboid selection, and image loading.
 
-`rendererRegistry.ts` remains the single `StreamType` to Renderer mapping. No Layer compatibility components or generic Renderer base class are retained.
+`SceneViewer` contains the single `StreamType` to Layer mapping and mounts the selected Layer component. The `renderers/` module is removed.
 
-Camera overlay code in `camera/` is outside this registry. `CameraOverlayProjector` owns reusable 2D projection scratch; each private `CameraViewport` owns its image, canvas resize, draw, and pick state.
+Point, polyline, polygon, and cuboid modules retain internal primitive classes so their GPU updates remain directly testable. These classes are implementation details of their corresponding Layer modules, not a second architecture layer.
+
+No generic base Layer, Layer manager, compatibility component, or independent registry is introduced.
+
+Camera projection code in `camera/` remains outside the Layer boundary. `CameraProjector` owns reusable 2D projection scratch; each private `CameraViewport` owns its image, canvas resize, rendering, and pointer-picking state.
 
 ## Consequences
 
-- Adding a stream name under an existing protocol type requires no Renderer change.
-- Adding a new protocol type requires a dedicated Renderer and one registry entry.
-- Renderer tests use a minimal per-instance store provider; implementation-detail render-count tests are not duplicated for every Renderer.
-- Store access, GPU mutation, and resource cleanup can be audited in one file per payload type.
+- One module contains the full store-to-GPU path for each rendered Stream type.
+- `SceneViewer` selects Layer strategies without owning their implementation details.
+- GPU resources remain instance-owned and are released when the Layer unmounts.
+- Adding a new rendered Stream type requires one concrete Layer and one `SceneViewer` mapping entry.

@@ -14,7 +14,7 @@ html {
 body {
   margin: 0;
   font-family: var(--font-body);
-  color: var(--color-text);
+  color: var(--color-app-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -44,12 +44,27 @@ ul {
   margin: 0;
 }
 
-@keyframes scene-loading {
-  0% {
-    transform: translateX(-110%);
+.scene-list-scrollbar {
+  scrollbar-color: var(--color-app-scrollbar) transparent;
+  scrollbar-width: thin;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .scene-list-scrollbar {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
   }
 
-  100% {
-    transform: translateX(260%);
+  .scene-list-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .scene-list-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scene-list-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-app-scrollbar);
+    border-radius: 999px;
   }
 }

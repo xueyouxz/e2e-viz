@@ -2,13 +2,13 @@ import { createContext, useContext } from 'react'
 import { useStore } from 'zustand'
 import type { SceneState, SceneStore } from './store/sceneStore'
 
-export interface SceneContextValue {
+interface SceneContextValue {
   store: SceneStore
 }
 
 export const SceneCtx = createContext<SceneContextValue | null>(null)
 
-export function useSceneCtx(): SceneContextValue {
+function useSceneCtx(): SceneContextValue {
   const ctx = useContext(SceneCtx)
   if (!ctx) throw new Error('useSceneCtx: missing SceneCtx.Provider')
   return ctx

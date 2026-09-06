@@ -1,148 +1,74 @@
 import { useMemo } from 'react'
 import { useSceneStore } from '../context'
+import { svgTokens } from '../styleConfig'
 import { HorizonChart } from './charts/HorizonChart'
 import { EgoStateChart } from './charts/EgoStateChart'
 import { ObjectCountChart } from './charts/ObjectCountChart'
+import { arrayMax } from './charts/chartUtils'
+import './StatisticsPanel.css'
 
-const cls = {
-  panel:
-    'absolute top-0 left-0 z-10 flex h-full w-[320px] flex-col overflow-hidden border-r border-app-border bg-app-panel-bg-solid',
-  header: 'flex shrink-0 items-center justify-between border-b border-app-border px-3 py-2.5',
-  title: 'text-[11px] font-semibold tracking-[0.08em] text-app-text-label uppercase',
-  closeBtn:
-    'flex cursor-pointer items-center border-0 bg-transparent px-0.5 text-[18px] leading-none text-app-text-dim hover:text-app-text-strong',
-  content:
-    'flex-1 overflow-x-hidden overflow-y-auto px-3 pt-2.5 pb-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-app-scrollbar [&::-webkit-scrollbar-track]:bg-transparent',
-  chartLegendRow: 'mb-1 flex gap-2.5',
-  legendItem: 'flex items-center gap-1 text-[10px] text-app-text-label',
-  legendDot: 'inline-block h-2 w-2 shrink-0 rounded-sm',
-  sectionHeader:
-    'mb-2 border-t border-app-border pt-3 text-[11px] font-bold tracking-[0.07em] text-app-text-label uppercase first:border-t-0 first:pt-1',
-  sceneInfo: 'mb-0.5 border-b border-app-border pt-1.5 pb-2.5',
-  sceneName: 'mb-1 text-[12px] font-semibold text-app-text-strong [overflow-wrap:anywhere]',
-  sceneDesc: 'text-[10px] leading-[1.45] text-app-text-label [overflow-wrap:anywhere]'
-}
+const METRICS = [
+  { name: 'detection', label: 'Detection' },
+  { name: 'mapping', label: 'Mapping' },
+  { name: 'planning', label: 'Planning' }
+] as const
 
-const GT_STREAM = '/gt/objects/bounds'
-const PRED_STREAM = '/pred/sparsedrive/objects/bounds'
-
-interface MetricConfig {
-  label: string
-}
-
-const METRIC_CONFIG: Record<string, MetricConfig> = {
-  detection: { label: '检测' },
-  mapping: { label: '建图' },
-  planning: { label: '规划' }
-}
-
-const SCORE_METRICS = ['detection', 'mapping', 'planning'] as const
-
-const SPEED_COLOR = '#F59E0B'
-const ACCEL_COLOR = '#22D3EE'
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return <div className={cls.sectionHeader}>{children}</div>
-}
-
-function SceneInfoBlock({ name, description }: { name: string; description: string }) {
-  return (
-    <div className={cls.sceneInfo}>
-      {name && <div className={cls.sceneName}>{name}</div>}
-      {description && <div className={cls.sceneDesc}>{description}</div>}
-    </div>
-  )
-}
-
-interface StatisticsPanelProps {
-  onClose: () => void
-}
-
-export function StatisticsPanel({ onClose }: StatisticsPanelProps) {
+export function StatisticsPanel() {
   const statistics = useSceneStore(s => s.statistics)
   const totalFrames = useSceneStore(s => s.totalFrames)
-  const sceneName = useSceneStore(s => s.sceneName)
-  const sceneDescription = useSceneStore(s => s.sceneDescription)
-
-  const gtSeries = statistics?.objectCounts[GT_STREAM]
-  const predSeries = statistics?.objectCounts[PRED_STREAM]
-
-  const hasMetrics = statistics ? SCORE_METRICS.some(name => statistics.metrics[name]) : false
-
-  const metricDomains = useMemo((): Record<string, [number, number]> => {
-    const domains: Record<string, [number, number]> = {}
-    for (const name of SCORE_METRICS) {
-      const data = statistics?.metrics[name]
-      if (!data || data.length === 0) {
-        domains[name] = [0, 1]
-        continue
-      }
-      let dMax = 0
-      for (let i = 0; i < data.length; i++) {
-        if (data[i] > dMax) dMax = data[i]
-      }
-      domains[name] = [0, dMax > 0 ? dMax : 1]
-    }
-    return domains
-  }, [statistics])
+  const metrics = useMemo(
+    () =>
+      METRICS.flatMap(metric => {
+        const data = statistics?.metrics[metric.name]
+        return data?.length
+          ? [{ ...metric, data, domain: [0, arrayMax(data)] as [number, number] }]
+          : []
+      }),
+    [statistics]
+  )
 
   if (!statistics) return null
 
   return (
-    <div className={cls.panel}>
-      <div className={cls.header}>
-        <span className={cls.title}>统计信息</span>
-        <button className={cls.closeBtn} onClick={onClose} title='收起'>
-          ×
-        </button>
-      </div>
-
-      <div className={cls.content}>
-        {(sceneName || sceneDescription) && (
-          <SceneInfoBlock name={sceneName} description={sceneDescription} />
-        )}
-
-        {hasMetrics && (
-          <>
-            <SectionHeader>场景指标</SectionHeader>
-            {SCORE_METRICS.map(name => {
-              const cfg = METRIC_CONFIG[name]
-              const data = statistics.metrics[name] ?? null
-              if (!data || !cfg) return null
-              return (
-                <HorizonChart
-                  key={name}
-                  data={data}
-                  label={cfg.label}
-                  domain={metricDomains[name]}
-                  frameCount={totalFrames}
-                  markers={name === 'planning' ? (statistics.metrics['collision'] ?? null) : null}
-                />
-              )
-            })}
-          </>
-        )}
-
-        <SectionHeader>自车状态</SectionHeader>
-        <div className={cls.chartLegendRow}>
-          <span className={cls.legendItem}>
-            <span className={cls.legendDot} style={{ background: SPEED_COLOR }} />
-            速度
-          </span>
-          <span className={cls.legendItem}>
-            <span className={cls.legendDot} style={{ background: ACCEL_COLOR }} />
-            加速度
-          </span>
-        </div>
+    <div className='scene-statistics'>
+      {metrics.length > 0 && (
+        <section className='scene-statistics-section' aria-label='Metric'>
+          <div className='scene-statistics-heading'>
+            <h3>Metric</h3>
+            <div className='scene-statistics-ramp' aria-label='Metric values from low to high'>
+              <span>Low</span>
+              {svgTokens.chart.horizonBands.map(color => (
+                <i key={color} style={{ background: color }} />
+              ))}
+              <span>High</span>
+            </div>
+          </div>
+          {metrics.map(metric => (
+            <HorizonChart
+              key={metric.name}
+              data={metric.data}
+              label={metric.label}
+              domain={metric.domain}
+              frameCount={totalFrames}
+              markers={metric.name === 'planning' ? statistics.metrics.collision : undefined}
+            />
+          ))}
+        </section>
+      )}
+      <section className='scene-statistics-section' aria-label='Ego state'>
+        <h3>Ego state</h3>
         <EgoStateChart
           egoSpeed={statistics.egoSpeed}
           egoAcceleration={statistics.egoAcceleration}
           frameCount={statistics.frameCount}
         />
-
-        <SectionHeader>目标计数对比</SectionHeader>
-        <ObjectCountChart gtSeries={gtSeries} predSeries={predSeries} frameCount={totalFrames} />
-      </div>
+      </section>
+      <section className='scene-statistics-section' aria-label='Object'>
+        <ObjectCountChart
+          gtSeries={statistics.objectCounts['/gt/objects/bounds']}
+          frameCount={totalFrames}
+        />
+      </section>
     </div>
   )
 }

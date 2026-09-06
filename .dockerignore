@@ -12,3 +12,7 @@ public/data
 coverage
 .env*
 secrets
+
+# Generated verification artifacts
+output/
+.playwright-cli/

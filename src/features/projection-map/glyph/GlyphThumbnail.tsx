@@ -1,58 +1,47 @@
-import { useEffect, useRef } from 'react'
-import { glyphAtlasLoader, glyphAtlasSourceRect } from './glyphAtlas'
+import { useLayoutEffect, useRef } from 'react'
+import { glyphAtlasSourceRect } from './glyphAtlas'
+import { useGlyphAtlas } from './useGlyphAtlas'
+import { resolveGlyphCanvasPixelRatio } from './glyphCanvasRenderer'
 
-interface GlyphThumbnailProps {
+export function GlyphThumbnail({
+  sceneName,
+  className
+}: {
   sceneName: string
   className?: string
-  size?: number
-}
-
-const BACKING_SCALE = 2
-
-export function GlyphThumbnail({ sceneName, className, size = 92 }: GlyphThumbnailProps) {
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { bitmap } = useGlyphAtlas()
+  const backingSize = 92 * resolveGlyphCanvasPixelRatio(window.devicePixelRatio)
 
-  useEffect(() => {
-    let mounted = true
+  useLayoutEffect(() => {
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
-    const source = glyphAtlasSourceRect(sceneName)
-    if (!canvas || !context || !source) return
-
+    if (!canvas || !context) return
     context.clearRect(0, 0, canvas.width, canvas.height)
-    void glyphAtlasLoader.load().then(
-      atlas => {
-        if (!mounted) return
-        context.imageSmoothingEnabled = true
-        context.imageSmoothingQuality = 'high'
-        context.drawImage(
-          atlas,
-          source.sx,
-          source.sy,
-          source.size,
-          source.size,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        )
-      },
-      () => {
-        // The canvas background remains as the non-blocking placeholder.
-      }
+    const source = glyphAtlasSourceRect(sceneName)
+    if (!bitmap || !source) return
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+    context.drawImage(
+      bitmap,
+      source.sx,
+      source.sy,
+      source.size,
+      source.size,
+      0,
+      0,
+      canvas.width,
+      canvas.height
     )
-
-    return () => {
-      mounted = false
-    }
-  }, [sceneName, size])
+  }, [sceneName, bitmap, backingSize])
 
   return (
     <canvas
       ref={canvasRef}
       className={className}
-      width={size * BACKING_SCALE}
-      height={size * BACKING_SCALE}
+      width={backingSize}
+      height={backingSize}
       role='img'
       aria-label={`${sceneName} glyph`}
     />

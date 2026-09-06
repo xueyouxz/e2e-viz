@@ -1,106 +1,53 @@
-# CLAUDE.md
+# Development instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Commands and checks
 
-## Commands
+Use pnpm (the exact version is recorded in `package.json`). Node.js 22 is used in CI and Docker.
 
-```bash
-pnpm dev          # dev server at http://localhost:3001
-pnpm build        # validate glyph atlas, typecheck, Vite build, initial bundle check
-pnpm typecheck    # tsc --noEmit (type check without emit)
-pnpm lint         # eslint
-pnpm lint:fix     # eslint --fix
-pnpm lint:style   # stylelint CSS
-pnpm format       # prettier
-pnpm test         # vitest run (single pass)
-pnpm test:watch   # vitest (watch mode)
-pnpm test:coverage
-pnpm size         # bundle size check (requires prior pnpm build)
-pnpm sync:data    # upload public/data + nusviz-val.zip to private OSS with ossutil
-```
+- `pnpm dev`: local Vite server on port 3001.
+- `pnpm build`: validate local glyph data when present, then build the production frontend.
+- `pnpm preview`: manually validate the production build locally. No staging environment is maintained.
+- `pnpm check`: the complete pre-push and CI check: lint, style lint, formatting, typecheck, non-interactive tests with coverage, server/script tests, build and bundle budgets.
+- `pnpm test`: run frontend, server and script tests without coverage.
+- `pnpm test:watch`: watch frontend tests; append a module path to focus the run.
+- `pnpm test:coverage`: frontend coverage report in `coverage/`; no coverage percentage gate.
+- `pnpm typecheck`: `tsc -b`, checking application and Vite configuration.
+- `pnpm lint`, `pnpm lint:style`, `pnpm format:check`: read-only checks.
+- `pnpm format`: format supported source, script, configuration and documentation files.
+- `pnpm size`: inspect the existing build through its Vite manifest.
+- `pnpm check:unused`: manual Knip audit. Review findings; do not auto-delete code or treat this as a push gate.
+- `pnpm render:glyphs`: generate individual glyph images and build the shared Atlas.
+- `pnpm sync:data`: explicitly requested uploads only; validates the Atlas before upload.
 
-Run a single test file:
+Pre-commit checks only staged files. Pre-push and CI both run `pnpm check`.
+Tests failing or builds exceeding their budget block the check; low coverage does not.
+Run focused checks while developing and the full check before delivery. Do not claim full verification after only module-level checks.
 
-```bash
-pnpm vitest run src/features/scene-viewer/data/FrameDecoder.test.ts
-```
+## Test boundary
 
-Path alias `@/` maps to `src/`.
+Users manually verify visual appearance, buttons, keyboard/pointer gestures, zoom, playback controls and page flows. Do not add Playwright or UI interaction tests.
+Automated tests cover requests, retry/cancellation, cache and load order, parsing, coordinate/selection calculations, state transitions and resource cleanup. Prefer existing fetch injection/mocks; do not add MSW without a new requirement.
+Vitest defaults to Node. Lifecycle tests that require React DOM opt into jsdom with a file-level annotation; using React in such tests does not make them interaction tests.
+Keep tests beside their module, including existing `__test__` folders. Coverage includes frontend source and reports untested code without imposing a global threshold. Server and script suites run separately with Node's test runner.
 
 ## Architecture
 
-Two independent features under `src/features/`:
+See `CONTEXT.md` for domain terms and `docs/NUSVIZ.md` for the data protocol. Current decisions are recorded in `docs/adr/`; superseded ADRs are historical, not implementation requirements.
 
-- **`projection-map`** — 2D D3 scatter plot of scenes in embedding space; lasso selection, pan/zoom, multi-dataset toggling. Data: `public/data/projection-map/`.
-- **`scene-viewer`** — 3D frame-by-frame playback of a driving scene with camera overlays and D3 charts. Data: `public/data/scenes/`, ego model: `public/ego.glb`.
+- `src/app/` owns routes, shell and route fallbacks.
+- `projection-map/index.tsx` owns selection and Train/Val display modes. Its permanent sidebar contains the summary and selected list in a 1:3 height ratio. `ProjectionMapView` owns D3 zoom and Canvas frames; `spatial.ts` owns pure geometry and sampling rules. One application-owned Atlas is shared with list thumbnails.
+- `scene-viewer/SceneManager.ts` owns a scene lifecycle and coordinates `SceneLoader` with a per-instance Zustand store.
+- `SceneLoader` owns fetch cancellation, queueing, cache and Blob URL creation/revocation. `MessageParser` and its Worker share parsing logic; `GlbReader` reads GLB/accessor data.
+- `layers/` contains one rendering pipeline per stream type. Layers read the store imperatively in the R3F update path and own their buffers and Three.js resource disposal.
+- `scene/SceneContent.tsx` contains the sole playback tick driver. `playback/timeManager.ts` calculates playback time; `Playback.tsx` owns controls.
+- `camera/CameraPanel.tsx` composes reusable projection and drawing/picking helpers.
 
-Routes: `/` and `/projection-map` → ProjectionMap; `/scenes/:sceneName` → SceneViewer.
+Preserve per-instance scene stores and resource ownership. Do not introduce store singletons, generic loader/renderer base classes, or duplicate frame-loading effects.
+Blob URLs remain owned by SceneLoader to align their lifetime with the scene/cache. Ordinary Web Workers can create Blob URLs; keeping ownership on the main thread is a project design choice, not a DOM API restriction.
+Changes to Worker messages must update `MessageParser.ts`, `MessageParser.worker.ts` and the SceneLoader materialization path together. Do not reuse detached transferred buffers.
 
-### State
+## Styling and types
 
-- **SceneStore** (`src/features/scene-viewer/store/sceneStore.ts`) — created via `createSceneStore()` factory, not a singleton. Each `<SceneViewer>` mount gets its own store instance passed through `SceneCtx`. Never refactor to a singleton (ADR-0001).
-
-### Scene data pipeline
-
-Scene directories contain a NUSVIZ message index, metadata GLB, and frame files (see `docs/NUSVIZ.md`):
-
-1. **Frame decoder** (`data/FrameDecoder.ts` with `data/workers/frameDecoder.worker.ts`) — keeps Worker and main-thread fallback behavior aligned, resolves typed array accessors, and returns raw `ArrayBuffer` bytes for images. Uses `Transferable` to avoid copy overhead.
-2. **Main thread** (`data/SceneRepository.ts`) — receives `RawDecodedFrame`, materializes image payloads with `URL.createObjectURL()` (DOM required; not doable in Worker). Handles fetch abort, cache ownership, and revocation on `destroy()` (ADR-0002).
-
-### Rendering: Renderer + Registry
-
-Five `StreamType` values from the NUSVIZ protocol are rendered via the registry (`point`, `polyline`, `polygon`, `cuboid`, `image`). The `pose` type is handled separately by `EgoVehicle` in `scene/`.
-
-- **Renderer** (`renderers/*Renderer.tsx`) — the complete rendering pipeline for one `StreamType`. Reads `StreamPayload` through zero-subscription `useSceneStoreApi()` + `useFrame`. Owns instance-scoped scratch objects, growable `DynamicDrawUsage` buffers, Three.js resources, and disposal.
-- **Registry** (`rendererRegistry.ts`) — maps `StreamType` → Renderer. `SceneViewer` iterates it; never hardcode type checks there (ADR-0003).
-
-Adding a new stream name under an existing type requires no code changes. Adding a new `StreamType` = new Renderer + one registry entry.
-
-### Playback and camera overlay
-
-- **Playback** (`playback/PlaybackClock.ts`, `playback/PlaybackTimeline.tsx`) — `SceneEffects` owns the only R3F playback tick. The timeline is controlled by SceneStore and updates its cursor imperatively.
-- **Camera overlay** (`camera/`) — `CameraOverlayProjector` owns reusable projection scratch and image-space bounds. Six private `CameraViewport` instances update image and canvas DOM imperatively; drawing and picking share one `CameraViewportTransform`.
-
-### Styling
-
-A single light palette; no runtime theme switching (removed in ADR-0006). CSS: `--app-*` custom properties in `:root` in `src/styles/variables.css`. For SVG/canvas elements (D3 charts, PlaybackTimeline) that cannot consume CSS variables: the `svgTokens` constant in `styleConfig.ts`.
-
-## Key constraints
-
-- `URL.createObjectURL()` must stay on the main thread — Workers have no DOM access.
-- `URL.revokeObjectURL()` must be called by the same thread that created the URL; `SceneRepository.destroy()` handles this.
-- Do not add reactive `useSceneStore(selector)` subscriptions inside Renderers; read the raw store only from the imperative R3F update path.
-- Do not replace `SceneCtx` with a module-level import of SceneStore.
-- The `RawDecodedFrame` type (with `_raw` discriminant) is the Worker IPC contract — changes require updating `frameDecoderMessages.ts`, `FrameDecoder.ts`, and `SceneRepository` materialization.
-
-## Type safety conventions
-
-The project runs `strict: true` with `noUnusedLocals` and `noUnusedParameters`. CI enforces `pnpm typecheck` before the build step.
-
-**Prohibited:**
-
-- `@ts-ignore` and `@ts-nocheck` — never use; they silently suppress real errors.
-- `as any` — use `unknown` + type narrowing, or proper generic bounds.
-- `// eslint-disable` on type-related rules (e.g. `@typescript-eslint/no-explicit-any`) — fix the root type instead.
-
-**Permitted with a mandatory explanation comment:**
-
-- `@ts-expect-error` — only when suppressing a known upstream library bug. The comment must name the library version and link or describe the issue.
-
-**Pattern for third-party ref types (drei / r3f):**
-Use `React.ElementRef<typeof Component>` instead of importing from indirect packages:
-
-```ts
-import type { ElementRef } from 'react'
-import { OrbitControls } from '@react-three/drei'
-const ref = useRef<ElementRef<typeof OrbitControls> | null>(null)
-```
-
-## Tooling
-
-- Package manager: **pnpm** (v10+)
-- Build: **Vite 7** with manual chunks for the application shell (`react-vendor`, `router`); the Three.js/R3F/Zustand graph stays inside the lazy SceneViewer chunk
-- Tests: **Vitest** with jsdom; coverage via v8; test setup in `src/test/setup.ts`
-- Linting: ESLint (flat config `eslint.config.mjs`), Stylelint (`stylelint-config-recess-order`)
-- Pre-commit: Husky + lint-staged (ESLint + Prettier on TS/TSX; Stylelint + Prettier on CSS)
-- Pre-push: full lint run via `.husky/pre-push`
+Use the light palette in `src/styles/variables.css`. Feature CSS may use semantic class names. `styleConfig.ts` owns scene stream styles and chart colors supplied to imperative rendering.
+TypeScript is strict. Do not use `@ts-ignore`, `@ts-nocheck`, `as any`, or disable type-related lint rules. A necessary `@ts-expect-error` must explain the upstream issue.
+Keep exports limited to actual cross-file interfaces. Preserve existing worktree changes unrelated to the requested task.

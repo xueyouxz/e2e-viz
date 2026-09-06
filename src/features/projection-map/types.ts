@@ -1,4 +1,5 @@
 export type SplitName = 'train' | 'val'
+export type SplitMode = 'glyph' | 'scatter'
 
 export type ProjectionMapPoint = {
   scene_name: string

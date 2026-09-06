@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["src/features/scene-viewer/data/MessageParser.worker.ts", "scripts/*.test.mjs"],
+      "project": ["src/**/*.{ts,tsx,css}", "scripts/*.mjs", "*.{ts,mjs}"]
+    },
+    "server": {
+      "entry": ["test/*.test.mjs"],
+      "project": ["**/*.mjs"]
+    }
+  }
+}

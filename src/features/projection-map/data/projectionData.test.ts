@@ -70,7 +70,7 @@ describe('ProjectionDataLoader', () => {
     })
 
     const request = expect(loader.load()).rejects.toMatchObject({
-      name: 'ProjectionDataTimeoutError'
+      name: 'RequestTimeoutError'
     })
     await vi.advanceTimersByTimeAsync(1_000)
 

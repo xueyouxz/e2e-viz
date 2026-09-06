@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { useParams } from 'react-router-dom'
-import { SceneViewer } from '@/features/scene-viewer'
-import { RouteLoading } from './RouteFallbacks'
+import { Loading, SceneViewer } from '@/features/scene-viewer'
 
 export default function SceneViewerRoute() {
   const { sceneName } = useParams<{ sceneName: string }>()
@@ -12,8 +11,8 @@ export default function SceneViewerRoute() {
 
   const sceneUrl = `/data/scenes/${sceneName}/`
   return (
-    <div className='h-[100dvh] w-full overflow-hidden'>
-      <Suspense fallback={<RouteLoading label='Loading scene…' variant='scene' />}>
+    <div className='relative h-[100dvh] w-full overflow-hidden'>
+      <Suspense fallback={<Loading />}>
         <SceneViewer sceneUrl={sceneUrl} />
       </Suspense>
     </div>

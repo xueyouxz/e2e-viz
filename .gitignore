@@ -26,3 +26,10 @@ ossutil_output/
 *.njsproj
 *.sln
 *.sw?
+
+# Generated verification artifacts
+coverage/
+output/
+.playwright-cli/
+playwright-report/
+test-results/

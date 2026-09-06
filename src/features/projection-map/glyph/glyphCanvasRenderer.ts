@@ -1,4 +1,6 @@
 import { glyphAtlasSourceRect } from './glyphAtlas'
+import { GLYPH_HOVER_SCALE } from './glyphLayout'
+import type { ViewBoxBounds } from '../spatial'
 
 const MIN_PIXEL_RATIO = 1
 const MAX_PIXEL_RATIO = 2
@@ -45,14 +47,10 @@ export type GlyphCanvasContext = {
 }
 
 type DrawGlyphCanvasOptions = {
-  width: number
-  height: number
+  bounds: ViewBoxBounds
   glyphSize: number
   hoveredSceneName: string | null
-  opacity?: number
 }
-
-const HOVER_SCALE = 1.18
 
 export function hitTestGlyph(
   points: readonly GlyphScreenPoint[],
@@ -65,7 +63,7 @@ export function hitTestGlyph(
     ? points.find(point => point.sceneName === hoveredSceneName)
     : undefined
   if (hovered) {
-    const hoverHalf = (glyphSize * HOVER_SCALE) / 2
+    const hoverHalf = (glyphSize * GLYPH_HOVER_SCALE) / 2
     if (Math.abs(x - hovered.x) <= hoverHalf && Math.abs(y - hovered.y) <= hoverHalf) {
       return hovered
     }
@@ -86,7 +84,8 @@ export function drawGlyphCanvas(
   points: readonly GlyphScreenPoint[],
   options: DrawGlyphCanvasOptions
 ): number {
-  context.clearRect(0, 0, options.width, options.height)
+  const { x, y, width, height } = options.bounds
+  context.clearRect(x, y, width, height)
   context.imageSmoothingEnabled = true
   context.imageSmoothingQuality = 'high'
 
@@ -101,12 +100,12 @@ export function drawGlyphCanvas(
     if (!source) continue
 
     const isHovered = point.sceneName === options.hoveredSceneName
-    const size = options.glyphSize * (isHovered ? HOVER_SCALE : 1)
+    const size = options.glyphSize * (isHovered ? GLYPH_HOVER_SCALE : 1)
     const left = point.x - size / 2
     const top = point.y - size / 2
 
     context.save()
-    context.globalAlpha = options.opacity ?? 1
+    context.globalAlpha = 1
     if (isHovered) {
       context.shadowColor = HOVER_SHADOW
       context.shadowBlur = 10

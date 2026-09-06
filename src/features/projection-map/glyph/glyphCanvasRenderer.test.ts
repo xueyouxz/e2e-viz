@@ -74,8 +74,7 @@ describe('drawGlyphCanvas', () => {
 
     expect(
       drawGlyphCanvas(ctx, atlas, points, {
-        width: 1280,
-        height: 760,
+        bounds: { x: 0, y: 0, width: 1280, height: 760 },
         glyphSize: 50,
         hoveredSceneName: 'scene-0000'
       })

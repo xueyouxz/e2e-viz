@@ -13,8 +13,9 @@ React/Vite visualization with a Node.js proxy for private Alibaba Cloud OSS data
 ```bash
 pnpm install
 pnpm dev
-pnpm lint
+pnpm check
 pnpm build
+pnpm preview
 pnpm render:glyphs
 ```
 
@@ -22,7 +23,7 @@ Local development data is read from `public/data/`, with `public/ego.glb` used b
 `pnpm render:glyphs` renders the individual source glyphs and then packs them into the single
 `public/data/glyphs/glyph-atlas-v1.webp` runtime atlas. The projection map and selected-scenes
 panel both crop thumbnails from that shared atlas, so glyph display uses one HTTP request.
-`pnpm build` validates this atlas and rebuilds it when local glyph data is present; CI/Docker skip
+`pnpm build` validates this atlas and rebuilds it when local glyph data is present, then bundles with Vite; CI/Docker skip
 that data step because production data is served from OSS and excluded from the image build context.
 
 ## Production architecture
@@ -63,3 +64,17 @@ pnpm sync:data
 
 `sync:data` also validates atlas coverage, format, dimensions and freshness before upload, then
 checks that the uploaded atlas exists in OSS.
+
+## Verification
+
+`pnpm check` is the single complete check used locally, by the pre-push hook and by CI. It runs ESLint, Stylelint, Prettier check, incremental TypeScript checks, frontend coverage tests, server/script tests, the production build and bundle budgets. Pre-commit only checks staged files.
+
+`pnpm test` runs non-interactive tests without coverage. `pnpm test:coverage` writes HTML, LCOV and JSON summaries under `coverage/` for frontend source; server and script test results are separate. Coverage percentages do not block pushes; failed tests do. Pure tests use Node; React resource/lifecycle tests explicitly opt into jsdom.
+
+Users manually validate layout, zoom, lasso gestures, playback controls, keyboard behavior and scene opening/closing with `pnpm dev` or `pnpm build` followed by `pnpm preview`. There is no staging deployment or automated browser interaction suite.
+
+`pnpm size` reads `dist/.vite/manifest.json`. Budgets use gzip: projection initial JavaScript including shared dependencies ≤150 KiB, additional scene-viewer route JavaScript excluding already loaded shared assets ≤330 KiB, and all manifest CSS ≤12 KiB. The lazy route must not become an eager dependency of the projection route. Chunk filenames are not used to classify routes.
+
+`pnpm check:unused` runs Knip manually. Review unused exports/dependencies against dynamic routes, Worker entry points and offline scripts before removing anything. Knip is not part of the push gate and does not auto-fix.
+
+The vector-map merge script remains an input to offline glyph rendering. Legacy glyph range/trajectory generation and the old per-glyph manifest output have been retired. Existing local and OSS data is not deleted by this cleanup.

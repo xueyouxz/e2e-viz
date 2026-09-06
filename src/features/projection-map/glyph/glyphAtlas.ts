@@ -1,6 +1,6 @@
 import atlasConfig from '../../../../glyph-atlas.config.json'
 
-const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504])
+import { RequestHttpError, requestWithRetry } from '../data/request'
 
 export const GLYPH_ATLAS = {
   url: `/data/glyphs/${atlasConfig.fileName}`,
@@ -11,29 +11,24 @@ export const GLYPH_ATLAS = {
   padding: atlasConfig.padding
 } as const
 
-export type GlyphAtlasSourceRect = {
+type GlyphAtlasSourceRect = {
   sx: number
   sy: number
   size: number
 }
 
-type FetchImage = (url: string) => Promise<Response>
-type DecodeImage = (blob: Blob) => Promise<ImageBitmap>
-type Wait = (delayMs: number) => Promise<void>
-
-interface GlyphAtlasLoaderOptions {
-  fetchImage?: FetchImage
-  decode?: DecodeImage
-  wait?: Wait
+type GlyphAtlasLoaderOptions = {
+  fetchImage?: (url: string, init?: RequestInit) => Promise<Response>
+  decode?: (blob: Blob) => Promise<ImageBitmap>
+  wait?: (delayMs: number) => Promise<void>
   maxRetries?: number
   retryBaseDelayMs?: number
+  requestTimeoutMs?: number
 }
 
-export class GlyphAtlasHttpError extends Error {
-  constructor(public readonly status: number) {
-    super(`Glyph atlas request failed with status ${status}`)
-    this.name = 'GlyphAtlasHttpError'
-  }
+type AtlasSnapshot = {
+  status: 'loading' | 'ready' | 'error'
+  bitmap: ImageBitmap | null
 }
 
 export function glyphAtlasSourceRect(sceneName: string): GlyphAtlasSourceRect | null {
@@ -58,60 +53,57 @@ export function glyphAtlasSourceRect(sceneName: string): GlyphAtlasSourceRect | 
   }
 }
 
-function isRetryable(error: unknown): boolean {
-  return !(error instanceof GlyphAtlasHttpError) || RETRYABLE_STATUS_CODES.has(error.status)
-}
-
+// App-scoped bitmap: the map and virtualized thumbnails share one decode.
 export class GlyphAtlasLoader {
-  readonly #fetchImage: FetchImage
-  readonly #decode: DecodeImage
-  readonly #wait: Wait
-  readonly #maxRetries: number
-  readonly #retryBaseDelayMs: number
-  #bitmap: ImageBitmap | null = null
+  #snapshot: AtlasSnapshot = { status: 'loading', bitmap: null }
   #loading: Promise<ImageBitmap> | null = null
+  #listeners = new Set<() => void>()
 
-  constructor(options: GlyphAtlasLoaderOptions = {}) {
-    this.#fetchImage =
-      options.fetchImage ??
-      (url => fetch(url, { credentials: 'same-origin', cache: 'force-cache' }))
-    this.#decode = options.decode ?? (blob => createImageBitmap(blob))
-    this.#wait = options.wait ?? (delayMs => new Promise(resolve => setTimeout(resolve, delayMs)))
-    this.#maxRetries = Math.max(0, Math.floor(options.maxRetries ?? 3))
-    this.#retryBaseDelayMs = Math.max(0, options.retryBaseDelayMs ?? 500)
+  constructor(private readonly options: GlyphAtlasLoaderOptions = {}) {}
+
+  getSnapshot = (): AtlasSnapshot => this.#snapshot
+  subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener)
+    return () => {
+      this.#listeners.delete(listener)
+    }
+  }
+
+  #publish(snapshot: AtlasSnapshot) {
+    this.#snapshot = snapshot
+    for (const listener of this.#listeners) listener()
   }
 
   load(): Promise<ImageBitmap> {
-    if (this.#bitmap) return Promise.resolve(this.#bitmap)
+    if (this.#snapshot.bitmap) return Promise.resolve(this.#snapshot.bitmap)
     if (this.#loading) return this.#loading
-
-    this.#loading = this.#loadWithRetry()
-      .then(bitmap => {
-        this.#bitmap = bitmap
-        return bitmap
-      })
+    const fetchImage =
+      this.options.fetchImage ??
+      ((url, init) => fetch(url, { credentials: 'same-origin', cache: 'force-cache', ...init }))
+    const decode = this.options.decode ?? (blob => createImageBitmap(blob))
+    this.#loading = requestWithRetry(
+      async signal => {
+        const response = await fetchImage(GLYPH_ATLAS.url, { signal })
+        if (!response.ok) throw new RequestHttpError(GLYPH_ATLAS.url, response.status)
+        return await decode(await response.blob())
+      },
+      { maxRetries: 3, retryBaseDelayMs: 500, ...this.options }
+    )
+      .then(
+        bitmap => {
+          this.#publish({ status: 'ready', bitmap })
+          return bitmap
+        },
+        error => {
+          this.#publish({ status: 'error', bitmap: null })
+          throw error
+        }
+      )
       .finally(() => {
         this.#loading = null
       })
+    this.#publish({ status: 'loading', bitmap: null })
     return this.#loading
-  }
-
-  dispose(): void {
-    this.#bitmap?.close()
-    this.#bitmap = null
-  }
-
-  async #loadWithRetry(): Promise<ImageBitmap> {
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        const response = await this.#fetchImage(GLYPH_ATLAS.url)
-        if (!response.ok) throw new GlyphAtlasHttpError(response.status)
-        return await this.#decode(await response.blob())
-      } catch (error) {
-        if (!isRetryable(error) || attempt >= this.#maxRetries) throw error
-        await this.#wait(this.#retryBaseDelayMs * 2 ** attempt)
-      }
-    }
   }
 }
 

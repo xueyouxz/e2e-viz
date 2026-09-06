@@ -1,5 +1,7 @@
 # SceneViewer 架构重构与热路径优化实施方案
 
+> 状态：历史实施记录，已被后续模块收敛替代。文中的 SceneSession、SceneRepository、FrameDecoder 和 rendererRegistry 不是当前实现要求。现行结构以根目录 CLAUDE.md、CONTEXT.md 和 ADR-0007 为准。
+
 ## 1. 目标与范围
 
 本方案处理以下问题：
@@ -7,7 +9,7 @@
 1. Scene session 生命周期分散。
 2. Playback 存在两套时钟和未使用的泛化实现。
 3. Frame decoder 的 Worker 与主线程 fallback 行为不一致。
-4. Camera overlay 的投影、绘制和选取逻辑分散。
+4. Camera 投影、绘制和选取逻辑分散。
 5. Renderer 热路径存在不必要的 React 更新、临时分配和 GPU 对象重建。
 6. 删除无调用实现，保留具有实际约束的 seam。
 
@@ -44,13 +46,13 @@
 | `FrameDecoder`            | 统一 Worker 与主线程 fallback 的解码行为                | `decode` 表示二进制到领域数据的转换           |
 | `PlaybackClock`           | 根据时间增量计算下一个 Frame                            | 不包含 React 或 DOM                           |
 | `PlaybackTimeline`        | Scene 专用时间轴 UI                                     | 只保留受控行为                                |
-| `CameraOverlayProjector`  | 生成六路相机共享的投影结果                              | 每个 `CameraPanel` 实例持有一个实例           |
-| `CameraOverlayFrame`      | 单个 Frame 的投影、绘制和选取数据                       | 包含复用后的 image-space bounds               |
+| `CameraProjector`         | 生成六路相机共享的投影结果                              | 每个 `CameraPanel` 实例持有一个实例           |
+| `CameraProjectionFrame`   | 单个 Frame 的投影、绘制和选取数据                       | 包含复用后的 image-space bounds               |
 | `CameraViewportTransform` | 图片空间与容器空间的映射                                | 绘制与选取共用                                |
 
 ### 3.2 函数
 
-- 创建资源：`createPointGeometry`、`createCameraOverlayProjector`。
+- 创建资源：`createPointGeometry`、`createCanvasRenderScratch`。
 - 原地更新：`updatePointGeometryInPlace`、`updateCoordinateTransformInPlace`。
 - 容量管理：`ensurePointCapacity`、`ensurePathCapacity`。
 - 释放资源：`disposeRendererResources`、`revokeFrameImageUrls`。
@@ -59,7 +61,7 @@
 
 ### 3.3 变量
 
-- 使用完整领域含义：`requestedFrameIndex`、`latestRequestId`、`decodedFrame`、`cameraOverlayFrame`。
+- 使用完整领域含义：`requestedFrameIndex`、`latestRequestId`、`decodedFrame`、`cameraProjectionFrame`。
 - Three.js 临时量按实例保存为 `scratchPosition`、`scratchQuaternion`，不使用 `_v3`、`_mat4` 等缩写。
 - Abort 对象使用 `lifecycleAbortController`、`frameRequestAbortController`。
 - boolean 使用 `isDestroyed`、`isFrameRequestCurrent`，不使用 `flag`、`status` 等模糊名称。
@@ -94,13 +96,11 @@ src/features/scene-viewer/
 │   └── PlaybackTimeline.test.tsx
 ├── camera/
 │   ├── CameraPanel.tsx
-│   ├── cameraViewport.ts
-│   ├── CameraOverlayProjector.ts
-│   ├── CameraOverlayProjector.test.ts
-│   ├── projection.ts
-│   ├── projection.test.ts
-│   ├── wireframe.ts
-│   └── wireframe.test.ts
+│   ├── cameraProjection.ts
+│   ├── cameraRendering.ts
+│   └── __test__/
+│       ├── cameraProjection.test.ts
+│       └── cameraRendering.test.ts
 └── renderers/
     ├── rendererResources.ts
     ├── PointRenderer.tsx
@@ -147,7 +147,7 @@ src/features/scene-viewer/
 | `hooks/useCoordinateTransform.ts`       | 删除         | 被 Renderer imperative lifecycle 吸收                                   |
 | `renderers/_shared.ts`                  | 重命名并收敛 | 删除无调用函数和模块级可变临时量                                        |
 | 四个非 Cuboid Renderer                  | 修改         | 与 `CuboidRenderer` 使用一致更新模型                                    |
-| `CameraPanel.tsx`                       | 移动并修改   | 依赖 `CameraOverlayProjector`                                           |
+| `CameraPanel.tsx`                       | 移动并修改   | 依赖 `CameraProjector`                                                  |
 | `useCameraProjectedBoxes.ts`            | 删除         | 被 projector 与 panel 吸收                                              |
 | camera pure modules                     | 移动或保留   | 保持纯函数 test surface                                                 |
 | `index.ts`                              | 修改         | 最终只公开 feature interface                                            |
@@ -541,7 +541,7 @@ perf(scene-viewer): move renderer updates off the react hot path
 - 每种 Renderer 可独立提交和回滚，但同一 Renderer 内不能保留双更新路径。
 - 出现 GPU 资源所有权不清、对象选择错误或 world/ego 坐标错误时停止。
 
-### Phase 5：收拢 Camera overlay 投影、绘制和选取
+### Phase 5：收拢 Camera 投影、绘制和选取
 
 #### 当前问题
 
@@ -552,11 +552,11 @@ perf(scene-viewer): move renderer updates off the react hot path
 
 #### 目标责任
 
-`CameraOverlayProjector`：
+`CameraProjector`：
 
 - 每个 `CameraPanel` 实例创建一次。
 - 复用 camera matrix、box corner、projection 和 bounds scratch。
-- 为六路 camera 生成 `CameraOverlayFrame`。
+- 为六路 camera 生成 `CameraProjectionFrame`。
 - 在投影时同时计算 image-space bounds。
 
 `CameraViewportTransform`：
@@ -569,31 +569,31 @@ perf(scene-viewer): move renderer updates off the react hot path
 
 - 每个 channel 一个稳定的私有 React subcomponent。
 - 只处理当前 channel 的 image、canvas、resize 和 click。
-- 通过 imperative canvas draw 更新高频 overlay。
+- 通过 imperative canvas rendering 更新高频投影结果。
 
 #### 符号命名
 
-| 当前                        | 目标                                  |
-| --------------------------- | ------------------------------------- |
-| `useCameraProjectedBoxes`   | `CameraOverlayProjector.projectFrame` |
-| `hitTestBoxes`              | `pickTrackAtViewportPoint`            |
-| `boxes`                     | `projectedCuboids`                    |
-| `scale`/`offsetX`/`offsetY` | `viewportTransform` 的字段            |
-| `_centerVec`                | `scratchCenter`                       |
-| `_boxCorners`               | `scratchCorners`                      |
-| `_cornerBuf`                | `scratchProjectedCorners`             |
+| 当前                        | 目标                           |
+| --------------------------- | ------------------------------ |
+| `useCameraProjectedBoxes`   | `CameraProjector.projectFrame` |
+| `hitTestBoxes`              | `pickTrackAtViewportPoint`     |
+| `boxes`                     | `projectedCuboids`             |
+| `scale`/`offsetX`/`offsetY` | `viewportTransform` 的字段     |
+| `_centerVec`                | `scratchCenter`                |
+| `_boxCorners`               | `scratchCorners`               |
+| `_cornerBuf`                | `scratchProjectedCorners`      |
 
 #### 实施
 
-- [x] 创建 `CameraOverlayProjector.ts`，迁移现有投影行为并保持输出一致。
-- [x] `ProjectedBox3DWireframe` 增加投影时生成的 image-space bounds，避免 hit test 重算。
+- [x] 创建 `cameraProjection.ts`，迁移现有投影行为并保持输出一致。
+- [x] `ProjectedCuboid` 增加投影时生成的 image-space bounds，避免 hit test 重算。
 - [x] 提取纯函数 `computeViewportTransform()` 和 `pickTrackAtViewportPoint()`。
-- [x] `cameraViewport` 使用已经计算的 viewport transform 和共享 frame 数据。
+- [x] `cameraRendering` 使用已经计算的 viewport transform 和共享 frame 数据。
 - [x] 将六路 cell 收敛为文件内私有 `CameraViewport`。
 - [x] 订阅只覆盖 camera image、cuboid payload、egoPose、camera calibration 和 selection。
-- [x] 高频 overlay 使用 canvas imperative draw；面板结构不随 Frame 重建。
+- [x] 高频投影结果使用 canvas imperative rendering；面板结构不随 Frame 重建。
 - [x] 删除 `hooks/useCameraProjectedBoxes.ts`。
-- [x] 保留 `projection.ts` 和 `wireframe.ts` 的纯算法 seam，不合入 React 文件。
+- [x] 将投影与渲染分别收敛到 `cameraProjection.ts` 和 `cameraRendering.ts`，不合入 React 文件。
 
 #### 测试
 
@@ -618,7 +618,7 @@ pnpm lint
 #### 提交
 
 ```text
-perf(scene-viewer): consolidate camera overlay projection and picking
+perf(scene-viewer): consolidate camera projection and picking
 ```
 
 #### 回滚与停止条件
@@ -712,7 +712,7 @@ Phase 2  SceneSession 生命周期
 Phase 3 Playback  Phase 4 Renderer
    └──────┬───────┘
           ↓
-Phase 5 Camera overlay
+Phase 5 Camera projection
           ↓
 Phase 6 删除与文档收敛
 ```

@@ -52,23 +52,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      - name: Complete checks
+        run: pnpm check
 
-      - name: Style lint
-        run: pnpm lint:style
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Unit tests
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-      - name: Bundle size check
-        run: pnpm size
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
 
   # ── CD: build & push Docker image to GHCR (main branch only) ───────────────
   cd:

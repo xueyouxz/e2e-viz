@@ -1,29 +1,29 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useSceneStoreApi } from '../context'
+import { Loading } from '../Loading'
 import type { SceneState } from '../store/sceneStore'
 import type { CuboidPayload, ImagePayload } from '../types'
 import {
   computeViewportTransform,
-  drawCameraOverlay,
-  pickTrackAtViewportPoint
-} from './cameraViewport'
-import { CameraOverlayProjector } from './CameraOverlayProjector'
-import { createWireframeDrawScratch } from './wireframe'
-import type { CameraChannel, CameraViewportTransform, ProjectedBox3DWireframe } from './types'
+  createCanvasRenderScratch,
+  pickTrackAtViewportPoint,
+  renderProjectedCuboids
+} from './cameraRendering'
+import type { CameraViewportTransform } from './cameraRendering'
+import { CameraProjector } from './cameraProjection'
+import type { CameraChannel, ProjectedCuboid } from './cameraProjection'
+import './CameraPanel.css'
 
 const CUBOID_STREAM = '/gt/objects/bounds'
 
 const cls = {
-  panel:
-    'absolute right-0 bottom-0 left-0 z-[5] flex h-2/5 flex-col overflow-hidden border-t border-app-border bg-app-panel-bg-solid',
+  content: 'flex h-full flex-col overflow-hidden border-t border-app-border bg-app-panel-bg-solid',
   grid: 'flex min-h-0 flex-1 flex-col gap-px overflow-hidden bg-app-grid-gap p-px',
   row: 'grid min-h-0 flex-1 grid-cols-3 gap-px',
   cell: 'relative flex min-h-0 flex-col overflow-hidden bg-app-cell-bg',
-  mediaWrap: 'relative flex min-h-0 flex-1 cursor-crosshair overflow-hidden',
-  thumb: 'block h-full w-full object-cover',
-  overlayCanvas: 'pointer-events-none absolute inset-0 h-full w-full',
-  placeholder:
-    'absolute inset-0 flex items-center justify-center text-[10px] tracking-[0.06em] text-app-placeholder-text uppercase'
+  viewport: 'relative flex min-h-0 flex-1 cursor-crosshair overflow-hidden',
+  image: 'block h-full w-full object-cover',
+  projectionCanvas: 'pointer-events-none absolute inset-0 h-full w-full'
 }
 
 const CAMERA_ROWS: CameraChannel[][] = [
@@ -33,26 +33,24 @@ const CAMERA_ROWS: CameraChannel[][] = [
 
 interface CameraViewportProps {
   channel: CameraChannel
-  projector: CameraOverlayProjector
+  projector: CameraProjector
+  active: boolean
 }
 
-interface ViewportRuntime {
+interface ViewportState {
   imagePayload?: ImagePayload
   sourceWidth: number
   sourceHeight: number
   viewportWidth: number
   viewportHeight: number
   viewportTransform: CameraViewportTransform
-  overlayVersion: number
+  projectionVersion: number
   selectedTrackId: number | null
-  projectedCuboids: ProjectedBox3DWireframe[]
+  projectedCuboids: ProjectedCuboid[]
   hasImage: boolean
 }
 
-function containsTrack(
-  projectedCuboids: ProjectedBox3DWireframe[],
-  trackId: number | null
-): boolean {
+function containsTrack(projectedCuboids: ProjectedCuboid[], trackId: number | null): boolean {
   if (trackId == null) return false
   for (const projectedCuboid of projectedCuboids) {
     if (projectedCuboid.trackId === trackId) return true
@@ -60,48 +58,58 @@ function containsTrack(
   return false
 }
 
-function CameraViewport({ channel, projector }: CameraViewportProps) {
+function CameraViewport({ channel, projector, active }: CameraViewportProps) {
   const store = useSceneStoreApi()
-  const mediaRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const placeholderRef = useRef<HTMLDivElement>(null)
-  const wireframeScratchRef = useRef(createWireframeDrawScratch())
-  const runtimeRef = useRef<ViewportRuntime>({
+  const loadingRef = useRef<HTMLDivElement>(null)
+  const renderScratchRef = useRef(createCanvasRenderScratch())
+  const viewportStateRef = useRef<ViewportState>({
     sourceWidth: 1600,
     sourceHeight: 900,
     viewportWidth: 0,
     viewportHeight: 0,
     viewportTransform: computeViewportTransform(0, 0, 1600, 900, 'cover'),
-    overlayVersion: -1,
+    projectionVersion: -1,
     selectedTrackId: null,
     projectedCuboids: [],
     hasImage: false
   })
 
   useLayoutEffect(() => {
-    const media = mediaRef.current
+    if (!active) return
+    const viewport = viewportRef.current
     const image = imageRef.current
     const canvas = canvasRef.current
-    const placeholder = placeholderRef.current
-    if (!media || !image || !canvas || !placeholder) return
-    const runtime = runtimeRef.current
+    const loading = loadingRef.current
+    if (!viewport || !image || !canvas || !loading) return
+    const viewportState = viewportStateRef.current
 
-    const draw = (state: SceneState, force = false) => {
+    const handleImageLoad = () => {
+      loading.style.display = 'none'
+    }
+    const handleImageError = () => {
+      loading.style.display = 'none'
+      image.style.display = 'none'
+    }
+    image.addEventListener('load', handleImageLoad)
+    image.addEventListener('error', handleImageError)
+
+    const renderViewport = (state: SceneState, forceRender = false) => {
       const imagePayload = state.streamState[`/camera/${channel}`] as ImagePayload | undefined
       const hasImage = Boolean(imagePayload?.url)
       let imageChanged = false
-      if (imagePayload !== runtime.imagePayload) {
-        runtime.imagePayload = imagePayload
+      if (imagePayload !== viewportState.imagePayload) {
+        viewportState.imagePayload = imagePayload
         imageChanged = true
+        loading.style.display = 'flex'
         if (imagePayload?.url) {
           image.src = imagePayload.url
           image.style.display = 'block'
-          placeholder.style.display = 'none'
         } else {
           image.removeAttribute('src')
           image.style.display = 'none'
-          placeholder.style.display = 'flex'
         }
       }
 
@@ -109,36 +117,36 @@ function CameraViewport({ channel, projector }: CameraViewportProps) {
       const sourceWidth = camera?.image_width ?? 1600
       const sourceHeight = camera?.image_height ?? 900
       const sourceChanged =
-        sourceWidth !== runtime.sourceWidth || sourceHeight !== runtime.sourceHeight
+        sourceWidth !== viewportState.sourceWidth || sourceHeight !== viewportState.sourceHeight
       if (sourceChanged) {
-        runtime.sourceWidth = sourceWidth
-        runtime.sourceHeight = sourceHeight
-        runtime.viewportTransform = computeViewportTransform(
-          runtime.viewportWidth,
-          runtime.viewportHeight,
+        viewportState.sourceWidth = sourceWidth
+        viewportState.sourceHeight = sourceHeight
+        viewportState.viewportTransform = computeViewportTransform(
+          viewportState.viewportWidth,
+          viewportState.viewportHeight,
           sourceWidth,
           sourceHeight,
           'cover'
         )
       }
 
-      const overlayFrame = projector.projectFrame(
+      const projectionFrame = projector.projectFrame(
         state.streamState[CUBOID_STREAM] as CuboidPayload | undefined,
         state.egoPose,
         state.cameras
       )
-      const projectedCuboids = overlayFrame.projectedCuboids[channel]
-      const overlayChanged = overlayFrame.version !== runtime.overlayVersion
-      const selectedChanged = state.selectedTrackId !== runtime.selectedTrackId
+      const projectedCuboids = projectionFrame.projectedCuboids[channel]
+      const projectionChanged = projectionFrame.version !== viewportState.projectionVersion
+      const selectedChanged = state.selectedTrackId !== viewportState.selectedTrackId
       const selectionAffectsViewport =
         selectedChanged &&
-        (containsTrack(projectedCuboids, runtime.selectedTrackId) ||
+        (containsTrack(projectedCuboids, viewportState.selectedTrackId) ||
           containsTrack(projectedCuboids, state.selectedTrackId))
 
-      runtime.overlayVersion = overlayFrame.version
-      runtime.selectedTrackId = state.selectedTrackId
-      runtime.projectedCuboids = projectedCuboids
-      runtime.hasImage = hasImage
+      viewportState.projectionVersion = projectionFrame.version
+      viewportState.selectedTrackId = state.selectedTrackId
+      viewportState.projectedCuboids = projectedCuboids
+      viewportState.hasImage = hasImage
 
       if (!hasImage) {
         const context = canvas.getContext('2d')
@@ -146,20 +154,20 @@ function CameraViewport({ channel, projector }: CameraViewportProps) {
         return
       }
       if (
-        !force &&
+        !forceRender &&
         !imageChanged &&
         !sourceChanged &&
-        !overlayChanged &&
+        !projectionChanged &&
         !selectionAffectsViewport
       ) {
         return
       }
-      drawCameraOverlay(
+      renderProjectedCuboids(
         canvas,
         projectedCuboids,
-        runtime.viewportTransform,
+        viewportState.viewportTransform,
         state.selectedTrackId,
-        wireframeScratchRef.current,
+        renderScratchRef.current,
         window.devicePixelRatio || 1
       )
     }
@@ -168,23 +176,23 @@ function CameraViewport({ channel, projector }: CameraViewportProps) {
       const nextWidth = Math.round(width)
       const nextHeight = Math.round(height)
       if (
-        nextWidth === runtime.viewportWidth &&
-        nextHeight === runtime.viewportHeight &&
+        nextWidth === viewportState.viewportWidth &&
+        nextHeight === viewportState.viewportHeight &&
         canvas.width === Math.floor(nextWidth * (window.devicePixelRatio || 1)) &&
         canvas.height === Math.floor(nextHeight * (window.devicePixelRatio || 1))
       ) {
         return
       }
-      runtime.viewportWidth = nextWidth
-      runtime.viewportHeight = nextHeight
-      runtime.viewportTransform = computeViewportTransform(
+      viewportState.viewportWidth = nextWidth
+      viewportState.viewportHeight = nextHeight
+      viewportState.viewportTransform = computeViewportTransform(
         nextWidth,
         nextHeight,
-        runtime.sourceWidth,
-        runtime.sourceHeight,
+        viewportState.sourceWidth,
+        viewportState.sourceHeight,
         'cover'
       )
-      draw(store.getState(), true)
+      renderViewport(store.getState(), true)
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -192,7 +200,7 @@ function CameraViewport({ channel, projector }: CameraViewportProps) {
       if (entry) updateViewportSize(entry.contentRect.width, entry.contentRect.height)
     })
     const handleWindowResize = () => {
-      const rect = media.getBoundingClientRect()
+      const rect = viewport.getBoundingClientRect()
       updateViewportSize(rect.width, rect.height)
     }
     const unsubscribe = store.subscribe((state, previousState) => {
@@ -206,64 +214,83 @@ function CameraViewport({ channel, projector }: CameraViewportProps) {
       ) {
         return
       }
-      draw(state)
+      renderViewport(state)
     })
 
-    resizeObserver.observe(media)
+    resizeObserver.observe(viewport)
     window.addEventListener('resize', handleWindowResize)
-    const rect = media.getBoundingClientRect()
+    const rect = viewport.getBoundingClientRect()
     updateViewportSize(rect.width, rect.height)
-    draw(store.getState(), true)
+    renderViewport(store.getState(), true)
+    if (image.complete && image.getAttribute('src')) {
+      if (image.naturalWidth > 0) handleImageLoad()
+      else handleImageError()
+    }
 
     return () => {
       unsubscribe()
       resizeObserver.disconnect()
       window.removeEventListener('resize', handleWindowResize)
+      image.removeEventListener('load', handleImageLoad)
+      image.removeEventListener('error', handleImageError)
     }
-  }, [channel, projector, store])
+  }, [channel, projector, store, active])
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    const runtime = runtimeRef.current
-    if (!runtime.hasImage) return
+    const viewportState = viewportStateRef.current
+    if (!viewportState.hasImage) return
     const rect = event.currentTarget.getBoundingClientRect()
     const trackId = pickTrackAtViewportPoint(
       event.clientX - rect.left,
       event.clientY - rect.top,
-      runtime.projectedCuboids,
-      runtime.viewportTransform
+      viewportState.projectedCuboids,
+      viewportState.viewportTransform
     )
     store.getState().setSelectedTrackId(trackId)
   }
 
   return (
     <div className={cls.cell}>
-      <div ref={mediaRef} className={cls.mediaWrap} onClick={handleClick}>
+      <div ref={viewportRef} className={cls.viewport} onClick={handleClick}>
         <img
           ref={imageRef}
           alt={channel}
-          className={cls.thumb}
+          className={cls.image}
           draggable={false}
           style={{ display: 'none' }}
         />
-        <canvas ref={canvasRef} className={cls.overlayCanvas} />
-        <div ref={placeholderRef} className={cls.placeholder} />
+        <canvas ref={canvasRef} className={cls.projectionCanvas} />
+        <Loading ref={loadingRef} />
       </div>
     </div>
   )
 }
 
-export function CameraPanel() {
-  const [projector] = useState(() => new CameraOverlayProjector())
+export function CameraPanel({ open }: { open: boolean }) {
+  const [projector] = useState(() => new CameraProjector())
   return (
-    <div className={cls.panel}>
-      <div className={cls.grid}>
-        {CAMERA_ROWS.map(row => (
-          <div key={row.join('-')} className={cls.row}>
-            {row.map(channel => (
-              <CameraViewport key={channel} channel={channel} projector={projector} />
-            ))}
-          </div>
-        ))}
+    <div
+      className='scene-camera-panel'
+      data-open={open}
+      aria-label='Camera images'
+      aria-hidden={!open}
+      inert={!open}
+    >
+      <div className={cls.content}>
+        <div className={cls.grid}>
+          {CAMERA_ROWS.map(row => (
+            <div key={row.join('-')} className={cls.row}>
+              {row.map(channel => (
+                <CameraViewport
+                  key={channel}
+                  channel={channel}
+                  projector={projector}
+                  active={open}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

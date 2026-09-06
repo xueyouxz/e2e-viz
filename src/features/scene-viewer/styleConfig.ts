@@ -40,7 +40,7 @@ export function getObjectColor(classId: number): ObjectColorConfig {
 //    1   预测地图折线        ← 高于底图/多边形
 //    2   包围盒填充          ← 三维目标
 //    5   轨迹/规划路径       ← 高于地图，低于包围盒边框
-//   12   包围盒边框          ← CuboidRenderer 在 renderOrder 上自动 +10
+//   12   包围盒边框          ← CuboidLayer 在 renderOrder 上自动 +10
 
 /**
  * 线性插值两个 hex 颜色，t ∈ [0, 1]。
@@ -67,7 +67,7 @@ function lerpColor(hexA: string, hexB: string, t: number): string {
 
 // 按流路径配置的默认样式，getStyle() 在流名称匹配时返回对应配置，
 // 未匹配时返回 {}（各渲染器自行使用内置默认值）
-export const defaultStyles: Record<string, StyleConfig> = {
+const defaultStyles: Record<string, StyleConfig> = {
   '/lidar': { color: '#ffffff', opacity: 0.8, renderOrder: 0 },
 
   '/gt/objects/bounds': { color: '#4b8cf8', opacity: 0.75, renderOrder: 2 },
@@ -144,78 +144,20 @@ export function getStyle(streamName: string): StyleConfig {
 
 // ─── SVG / Canvas 调色板 ──────────────────────────────────────────────────────
 //
-// D3 图表和 PlaybackTimeline 工作在 SVG/Canvas 环境中，无法消费 CSS 自定义属性，
-// 因此通过 JS 对象传递颜色值。
-
-export interface SvgPalette {
-  chartBg: string
-  frameStroke: string
-  labelFill: string
-  tickFill: string
-  baseStroke: string
-  zeroStroke: string
-  centerStroke: string
-  gtLabelFill: string
-  predLabelFill: string
-  collisionBg: string
-}
-
-export interface TimelineTokens {
-  background: string
-  padding: number | { left?: number; right?: number }
-  trackHeight: number
-  knobSize: number
-  knobBorder: string
-  knobBorderActive: string
-  trackBg: string
-  trackFill: string
-  bufferFill: string
-  tickMajorColor: string
-  tickMinorColor: string
-  tickLabelColor: string
-  textPrimary: string
-  textSecondary: string
-  btnColor: string
-  btnHoverColor: string
-  borderColor: string
-}
-
-export interface SvgTokens {
-  chart: SvgPalette
-  timeline: TimelineTokens
-}
+// D3 图表工作在 SVG/Canvas 环境中，因此通过 JS 对象传递颜色值。
 
 // SVG/Canvas 调色板：深色文字 + 浅色背景
-export const svgTokens: SvgTokens = {
+export const svgTokens = {
   chart: {
-    chartBg: 'rgb(0 0 0 / 3%)',
-    frameStroke: 'rgb(0 0 0 / 45%)',
-    labelFill: 'rgb(0 0 0 / 50%)',
-    tickFill: 'rgb(0 0 0 / 40%)',
-    baseStroke: 'rgb(0 0 0 / 18%)',
-    zeroStroke: 'rgb(0 0 0 / 20%)',
-    centerStroke: 'rgb(0 0 0 / 28%)',
-    gtLabelFill: 'rgb(0 0 0 / 55%)',
-    predLabelFill: 'rgb(0 0 0 / 40%)',
-    collisionBg: 'rgb(240 242 250 / 80%)'
-  },
-  timeline: {
-    background: '#e8eaf0',
-    padding: 14,
-    trackHeight: 2,
-    knobSize: 12,
-    knobBorder: '#8890a0',
-    knobBorderActive: '#505868',
-    trackBg: '#b8bcc8',
-    trackFill: '#2563eb',
-    bufferFill: 'rgba(37,99,235,0.22)',
-    tickMajorColor: '#9098a8',
-    tickMinorColor: '#c8ccd8',
-    tickLabelColor: '#7880a0',
-    textPrimary: '#282e40',
-    textSecondary: '#6870a0',
-    btnColor: '#7880a0',
-    btnHoverColor: '#282e40',
-    borderColor: '#c8cad4'
+    surface: '#eef0f6',
+    chartBg: '#e6e8ee',
+    frameStroke: '#4e5768',
+    tickFill: '#616774',
+    baseStroke: '#c9cdd6',
+    zeroStroke: '#929ba8',
+    speed: '#3a6fa3',
+    accelerationPositive: '#497458',
+    accelerationNegative: '#a05050',
+    horizonBands: ['#eee2e2', '#dec5c5', '#cfa7a7', '#b88080', '#995c5c']
   }
-}
+} as const

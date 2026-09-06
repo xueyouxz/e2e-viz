@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { RequestHttpError, requestWithRetry } from './request'
 
 export type SceneObjectSummary = {
   split: 'train' | 'val'
@@ -33,11 +34,11 @@ let pendingFetch: Promise<Map<string, SceneObjectSummary>> | null = null
 
 function loadScenesMeta(): Promise<Map<string, SceneObjectSummary>> {
   if (pendingFetch) return pendingFetch
-  pendingFetch = fetch(SCENES_META_PATH)
-    .then(r => {
-      if (!r.ok) throw new Error(`scenes-meta fetch failed: ${r.status}`)
-      return r.json() as Promise<ScenesMeta>
-    })
+  pendingFetch = requestWithRetry(async signal => {
+    const response = await fetch(SCENES_META_PATH, { signal })
+    if (!response.ok) throw new RequestHttpError(SCENES_META_PATH, response.status)
+    return (await response.json()) as ScenesMeta
+  })
     .then(data => {
       const map = new Map(data.scenes.map(s => [s.scene_name, s]))
       metaCache = map

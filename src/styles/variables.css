@@ -2,20 +2,17 @@
  *
  * Canonical design tokens live here in a v4 `@theme` block, so each one both
  * (a) emits a CSS custom property on `:root` and (b) generates a Tailwind
- * utility (e.g. `--color-app-panel-bg` → `bg-app-panel-bg`). All component
- * styling consumes these via utilities; there are no longer any CSS modules.
+ * utility (e.g. `--color-app-panel-bg` → `bg-app-panel-bg`). Shared application
+ * styling consumes these via utilities; feature-specific CSS uses semantic,
+ * prefixed class names and there are no CSS modules.
  */
 
 @theme {
-  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'SFMono-Regular', monospace;
 
   --color-accent: #2563eb;
 
-  --color-app-panel-bg: rgb(248 249 253 / 76%);
   --color-app-panel-bg-solid: rgb(238 240 246 / 95%);
-  --color-app-panel-bg-menu: rgb(252 253 255 / 97%);
   --color-app-cell-bg: #f2f3f8;
   --color-app-bg-hover: rgb(225 229 243 / 95%);
   --color-app-text-strong: rgb(15 15 25 / 88%);
@@ -24,21 +21,12 @@
   --color-app-text-dim: rgb(15 15 25 / 42%);
   --color-app-text-faint: rgb(15 15 25 / 32%);
   --color-app-text-ghost: rgb(15 15 25 / 18%);
-  --color-app-text-btn: rgb(15 15 25 / 65%);
   --color-app-border: rgb(0 0 0 / 8%);
   --color-app-border-btn: rgb(0 0 0 / 12%);
-  --color-app-border-hover: rgb(0 0 0 / 24%);
   --color-app-scrollbar: rgb(0 0 0 / 15%);
   --color-app-row-hover: rgb(0 0 0 / 4%);
-  --color-app-card-bg: rgb(0 0 0 / 3%);
-  --color-app-card-border: rgb(0 0 0 / 7%);
   --color-app-grid-gap: rgb(0 0 0 / 8%);
-  --color-app-label-overlay-bg: rgb(255 255 255 / 85%);
-  --color-app-label-overlay-text: rgb(0 0 0 / 65%);
-  --color-app-placeholder-text: rgb(0 0 0 / 18%);
-  --color-app-menu-shadow: rgb(0 0 0 / 15%);
   --color-app-toggle-active-bg: rgb(0 0 0 / 8%);
-  --color-app-toggle-active-border: rgb(0 0 0 / 18%);
   --color-app-bar-track: rgb(0 0 0 / 9%);
 
   --color-app-surface: #fff;
@@ -47,12 +35,7 @@
   --color-app-text-muted: #6a7690;
   --color-app-page-border: #e4e8f0;
 
-  --shadow-app-card-hover: 0 2px 8px rgb(15 23 42 / 6%);
-
-  --animate-fade-in: fade-in 160ms ease;
-  --animate-slide-up: slide-up 200ms ease;
   --animate-toast: fade-in 160ms ease, fade-out 300ms ease 3.2s forwards;
-  --animate-fade-slide: fade-slide 0.12s ease;
 
   @keyframes fade-in {
     from {
@@ -66,33 +49,9 @@
     }
   }
 
-  @keyframes slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
   @keyframes fade-out {
     to {
       opacity: 0;
-    }
-  }
-
-  @keyframes fade-slide {
-    from {
-      opacity: 0;
-      transform: translateX(-4px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateX(0);
     }
   }
 }

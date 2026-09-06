@@ -1,0 +1,29 @@
+.scene-workspace {
+  container-type: inline-size;
+}
+
+.scene-details-panel {
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition:
+    width 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s 260ms;
+}
+
+.scene-details-panel[data-open='true'] {
+  width: min(280px, 45cqi);
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.scene-details-content {
+  width: min(280px, 45cqi);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-details-panel {
+    transition: none;
+  }
+}

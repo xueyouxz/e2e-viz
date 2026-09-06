@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  GLYPH_ATLAS,
-  GlyphAtlasHttpError,
-  GlyphAtlasLoader,
-  glyphAtlasSourceRect
-} from './glyphAtlas'
+import { GLYPH_ATLAS, GlyphAtlasLoader, glyphAtlasSourceRect } from './glyphAtlas'
+import { RequestHttpError } from '../data/request'
 
 function response(status = 200): Response {
   return {
@@ -36,7 +32,7 @@ describe('glyph atlas', () => {
 
     await expect(Promise.all([loader.load(), loader.load()])).resolves.toEqual([bitmap, bitmap])
     expect(fetchImage).toHaveBeenCalledTimes(1)
-    expect(fetchImage).toHaveBeenCalledWith(GLYPH_ATLAS.url)
+    expect(fetchImage).toHaveBeenCalledWith(GLYPH_ATLAS.url, { signal: expect.any(AbortSignal) })
     expect(decode).toHaveBeenCalledTimes(1)
   })
 
@@ -67,6 +63,28 @@ describe('glyph atlas', () => {
       maxRetries: 3
     })
 
-    await expect(loader.load()).rejects.toEqual(new GlyphAtlasHttpError(404))
+    await expect(loader.load()).rejects.toEqual(new RequestHttpError(GLYPH_ATLAS.url, 404))
   })
+})
+
+it('notifies every atlas subscriber when a later caller recovers from a failed load', async () => {
+  const bitmap = {} as ImageBitmap
+  const loader = new GlyphAtlasLoader({
+    fetchImage: vi.fn().mockResolvedValueOnce(response(404)).mockResolvedValueOnce(response()),
+    decode: vi.fn().mockResolvedValue(bitmap),
+    maxRetries: 0
+  })
+  const mapStates: string[] = []
+  const thumbnailStates: string[] = []
+  const unsubscribeMap = loader.subscribe(() => mapStates.push(loader.getSnapshot().status))
+  const unsubscribeThumbnail = loader.subscribe(() =>
+    thumbnailStates.push(loader.getSnapshot().status)
+  )
+  await expect(loader.load()).rejects.toMatchObject({ status: 404 })
+  await loader.load()
+  expect(mapStates).toEqual(['loading', 'error', 'loading', 'ready'])
+  expect(thumbnailStates).toEqual(mapStates)
+  expect(loader.getSnapshot().bitmap).toBe(bitmap)
+  unsubscribeMap()
+  unsubscribeThumbnail()
 })

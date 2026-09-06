@@ -15,7 +15,8 @@ function createEmptySceneData() {
     staticStreamState: {},
     streamState: {},
     egoPose: null,
-    frameIndex: 0,
+    displayedFrameIndex: 0,
+    requestedFrameIndex: 0,
     isPlaying: false,
     bufferEndFrame: 0,
     visibleStreams: {},
@@ -43,7 +44,8 @@ export interface SceneState {
   staticStreamState: Record<string, StreamPayload>
   streamState: Record<string, StreamPayload>
   egoPose: EgoPose | null
-  frameIndex: number
+  displayedFrameIndex: number
+  requestedFrameIndex: number
   isPlaying: boolean
   playbackSpeed: number
 
@@ -57,12 +59,13 @@ export interface SceneState {
 
   resetSceneData: () => void
   setMetadata: (meta: SceneMetadata, initialStreamState: Record<string, StreamPayload>) => void
-  setFrame: (
+  commitFrame: (
+    frameIndex: number,
     updateType: 'COMPLETE_STATE' | 'INCREMENTAL',
     egoPose: EgoPose | null,
     patches: Record<string, StreamPayload>
   ) => void
-  setFrameIndex: (i: number) => void
+  requestFrame: (frameIndex: number) => void
   setBufferEndFrame: (frame: number) => void
   play: () => void
   pause: () => void
@@ -95,13 +98,15 @@ export function createSceneStore() {
             .filter(k => meta.streams[k].type !== 'pose')
             .map(k => [k, !DEFAULT_HIDDEN.has(k)])
         ),
-        frameIndex: 0,
+        displayedFrameIndex: 0,
+        requestedFrameIndex: 0,
         isPlaying: false,
         selectedTrackId: null
       }),
 
-    setFrame: (updateType, egoPose, patches) =>
+    commitFrame: (frameIndex, updateType, egoPose, patches) =>
       set(state => ({
+        displayedFrameIndex: frameIndex,
         egoPose: egoPose ?? state.egoPose,
         streamState:
           updateType === 'COMPLETE_STATE'
@@ -109,12 +114,19 @@ export function createSceneStore() {
             : { ...state.streamState, ...patches }
       })),
 
-    setFrameIndex: i => set({ frameIndex: i }),
+    requestFrame: frameIndex =>
+      set(state => ({
+        requestedFrameIndex: Math.max(
+          0,
+          Math.min(Math.max(0, state.totalFrames - 1), Math.round(frameIndex))
+        )
+      })),
     setBufferEndFrame: frame => set({ bufferEndFrame: frame }),
     play: () =>
       set(state => ({
         isPlaying: true,
-        frameIndex: state.frameIndex >= state.totalFrames - 1 ? 0 : state.frameIndex
+        requestedFrameIndex:
+          state.displayedFrameIndex >= state.totalFrames - 1 ? 0 : state.requestedFrameIndex
       })),
     pause: () => set({ isPlaying: false }),
     setPlaybackSpeed: s => set({ playbackSpeed: s }),

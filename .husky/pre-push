@@ -1,3 +1,1 @@
-pnpm typecheck
-pnpm lint
-pnpm lint:style
+pnpm check

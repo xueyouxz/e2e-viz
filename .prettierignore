@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-ssr/
+public/
+coverage/
+output/
+.playwright-cli/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+server/pnpm-lock.yaml
+secrets/
+.env*
+.husky/_/

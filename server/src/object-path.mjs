@@ -20,7 +20,9 @@ export function resolveObjectName(requestPathname, objectPrefix) {
   }
 
   const segments = relativePath.split('/')
-  if (segments.some(segment => !SAFE_SEGMENT.test(segment) || segment === '.' || segment === '..')) {
+  if (
+    segments.some(segment => !SAFE_SEGMENT.test(segment) || segment === '.' || segment === '..')
+  ) {
     throw new InvalidObjectPathError('Path contains an unsafe segment')
   }
 

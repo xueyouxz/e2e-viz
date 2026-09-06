@@ -40,31 +40,14 @@ export default defineConfig({
     target: 'es2020'
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov'],
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: [
-        'src/test/**',
-        'src/**/*.d.ts',
-        'src/app/main.tsx',
-        'src/**/components/**',
-        'src/**/pages/**',
-        'src/**/hooks/**',
-        'src/**/layer/**',
-        'src/**/renderers/**',
-        'src/app/**'
-      ],
-      thresholds: {
-        statements: 20,
-        branches: 20,
-        functions: 20,
-        lines: 20
-      }
+      exclude: ['src/**/*.d.ts', 'src/**/*.test.*', 'src/**/__test__/**']
     }
   }
 })
