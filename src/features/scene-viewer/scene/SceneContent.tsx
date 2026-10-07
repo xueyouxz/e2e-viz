@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html, useGLTF } from '@react-three/drei'
@@ -19,9 +19,9 @@ import { useSceneStore, useSceneStoreApi } from '../context'
 import { advancePlaybackTime } from '../playback/timeManager'
 import { getObjectColor } from '../styleConfig'
 import type { CuboidPayload } from '../types'
+import egoModelUrl from '../assets/ego.glb?url'
 import { CameraController } from './CameraController'
 
-const EGO_MODEL_URL = '/ego.glb'
 const EGO_RENDER_ORDER = 90
 const EGO_MODEL_FORWARD_OFFSET_M = 0.9
 const CUBOID_STREAM = '/gt/objects/bounds'
@@ -137,7 +137,7 @@ function disposeEgoMaterials(root: THREE.Object3D): void {
 function EgoVehicle() {
   const store = useSceneStoreApi()
   const groupRef = useRef<THREE.Group>(null)
-  const { scene } = useGLTF(EGO_MODEL_URL)
+  const { scene } = useGLTF(egoModelUrl)
   const egoScene = useMemo(() => prepareEgoScene(scene.clone()), [scene])
   const scratch = useMemo(
     () => ({
@@ -254,11 +254,13 @@ export function SceneContent() {
     <>
       <SceneEffects />
       <CameraController />
-      <ambientLight intensity={0.5} />
-      <EgoVehicle />
+      {/* The ego model must not hold back stream layers while it downloads. */}
+      <Suspense fallback={null}>
+        <EgoVehicle />
+      </Suspense>
       <SelectedObjectIcon />
     </>
   )
 }
 
-useGLTF.preload(EGO_MODEL_URL)
+useGLTF.preload(egoModelUrl)
